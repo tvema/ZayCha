@@ -162,9 +162,14 @@ export function SharedMediaRenderer({ messages, activeTab, socket = null, active
        * и с четкими, заметными ПРОМЕЖУТКАМИ между ними (gap-3 p-3), чтобы плитки НЕ сливались в одну сплошную кашу.
        * Любые будущие правки ДОЛЖНЫ сохранять этот квадратный плиточный вид с зазорами!
        * 
-       * We MUST keep this layout as a distinct grid of SQUARE tiles (aspect-square) with 
-       * rounded corners (rounded-xl) and clear visible spacing (gap-3 p-3) between them.
-       * Do NOT simplify or revert this to a seamless flat block.
+       * ВНИМАНИЕ: Мы используем супер-надежный кроссбраузерный трюк "relative w-full pt-[100%] h-0"
+       * вместо класса "aspect-square". Чистый "aspect-square" в условиях гибких Iframe-контейнеров на некоторых 
+       * браузёрах схлопывает высоту грид-строк в 0, из-за чего плитки вертикально наезжают друг на друга.
+       * Пожалуйста, не меняйте "pt-[100%] h-0" обратно на "aspect-square"!
+       * 
+       * ATTENTION: We use the bulletproof "relative w-full pt-[100%] h-0" pattern instead of "aspect-square".
+       * Plain "aspect-square" in dynamic/iframe-sandboxed grid tracks can collapse row heights to 0, 
+       * causing adjacent grid rows to overlap vertically. Do not revert this to aspect-square!
        * ==========================================
        */
       <div 
@@ -175,7 +180,7 @@ export function SharedMediaRenderer({ messages, activeTab, socket = null, active
           return (
             <div 
               key={idx}
-              className="relative aspect-square cursor-pointer group bg-neutral-100 dark:bg-neutral-800 rounded-xl overflow-hidden block border border-neutral-200/50 dark:border-neutral-700/50 shadow-sm"
+              className="relative w-full pt-[100%] h-0 cursor-pointer group bg-neutral-100 dark:bg-neutral-800 rounded-xl overflow-hidden block border border-neutral-200/50 dark:border-neutral-700/50 shadow-sm"
             >
               <div className="absolute inset-0">
                 <FileAttachment 
