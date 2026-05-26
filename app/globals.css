@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark, .dark *));
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Enlarge custom image-based emojis in the picker without breaking the grid layout engine */
+.epr-emoji-img[src*="зайчат"] {
+  padding: 0 !important;
+  transform: scale(1.6);
+  transform-origin: center;
+  max-width: none !important;
+  max-height: none !important;
+}
