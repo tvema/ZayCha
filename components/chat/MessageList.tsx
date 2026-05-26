@@ -224,6 +224,34 @@ export function MessageList({
     }
   }, [chatId, filteredMessages.length, setIsAtBottom, hasMoreMessages, isLoadingMore, loadMoreMessages]);
 
+  const getUnreadTargetPos = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return null;
+
+    const badgeEl = document.getElementById('unread-badge-element');
+    const msgEl = firstUnreadMessageIdRef.current 
+      ? document.getElementById(`message-${firstUnreadMessageIdRef.current}`) 
+      : null;
+
+    const targetEl = badgeEl || msgEl;
+    if (!targetEl) return null;
+
+    const relativeTop = targetEl.getBoundingClientRect().top - container.getBoundingClientRect().top;
+    const absoluteTop = container.scrollTop + relativeTop;
+    const remainingHeight = container.scrollHeight - absoluteTop;
+    const doesNotFit = remainingHeight > container.clientHeight;
+
+    const maxScroll = container.scrollHeight - container.clientHeight;
+    const offsetPadding = targetEl === badgeEl ? 16 : 60;
+    const targetScroll = Math.min(maxScroll, Math.max(0, absoluteTop - offsetPadding));
+
+    return {
+      targetScroll,
+      doesNotFit,
+      absoluteTop
+    };
+  }, [chatId]);
+
   useLayoutEffect(() => {
     if (chatId !== lastSeenChatId.current) {
       lastSeenChatId.current = chatId;
@@ -279,49 +307,39 @@ export function MessageList({
         isRestoring.current = true;
         
         const saved = (chatId && scrollPositionsRef.current) ? scrollPositionsRef.current[chatId] : null;
-        
-        const shouldScrollToUnread = () => {
-          if (!firstUnreadMessageIdRef.current) return false;
-          const el = document.getElementById(`message-${firstUnreadMessageIdRef.current}`);
-          if (!el) return false;
-          
-          // Badge is approximately at el.offsetTop - 60
-          const targetTop = el.offsetTop - 60;
-          const remainingContentHeight = container.scrollHeight - targetTop;
-          
-          // Returns true if scrolling to the bottom would hide the unread badge off screen
-          return remainingContentHeight > container.clientHeight;
-        };
 
         const restore = () => {
+          const info = getUnreadTargetPos();
+
           if (saved) {
              if (!saved.wasAtBottom) {
-               if (saved.distanceFromBottom !== undefined) {
-                 container.scrollTop = Math.max(0, container.scrollHeight - saved.distanceFromBottom);
-               } else if (saved.scrollTop !== undefined) {
-                 container.scrollTop = Math.max(0, saved.scrollTop);
-               }
-               isAtBottomRef.current = false;
-               setIsAtBottom(false);
-               hasUserScrolledRef.current = true; // User previously scrolled away from bottom/unread
+                if (saved.distanceFromBottom !== undefined) {
+                  container.scrollTop = Math.max(0, container.scrollHeight - saved.distanceFromBottom);
+                } else if (saved.scrollTop !== undefined) {
+                  container.scrollTop = Math.max(0, saved.scrollTop);
+                }
+                isAtBottomRef.current = false;
+                setIsAtBottom(false);
+                hasUserScrolledRef.current = true; // User previously scrolled away from bottom/unread
+                
+                // Keep unread indicator lit if they switch back to a chat with unread messages
+                const hasUnread = (activeContact?.unread_count || activeGroup?.unread_count || 0) > 0;
+                setHasNewMessages(hasUnread);
              } else {
                // We were previously at the bottom. But maybe brand new messages have arrived!
-               if (shouldScrollToUnread()) {
-                 const el = document.getElementById(`message-${firstUnreadMessageIdRef.current}`);
-                 if (el) {
-                   container.scrollTop = Math.max(0, el.offsetTop - 60);
-                   isAtBottomRef.current = false;
-                   setIsAtBottom(false);
-                   setHasNewMessages(true);
-                   if (chatId && scrollPositionsRef.current) {
-                     scrollPositionsRef.current[chatId] = {
-                       scrollTop: container.scrollTop,
-                       distanceFromBottom: container.scrollHeight - container.scrollTop,
-                       wasAtBottom: false
-                     };
-                   }
-                   return;
+               if (info && info.doesNotFit) {
+                 container.scrollTop = info.targetScroll;
+                 isAtBottomRef.current = false;
+                 setIsAtBottom(false);
+                 setHasNewMessages(true);
+                 if (chatId && scrollPositionsRef.current) {
+                   scrollPositionsRef.current[chatId] = {
+                     scrollTop: container.scrollTop,
+                     distanceFromBottom: container.scrollHeight - container.scrollTop,
+                     wasAtBottom: false
+                   };
                  }
+                 return;
                }
                
                container.scrollTop = container.scrollHeight;
@@ -331,30 +349,26 @@ export function MessageList({
              return;
           }
 
-          if (firstUnreadMessageIdRef.current) {
-            const el = document.getElementById(`message-${firstUnreadMessageIdRef.current}`);
-            if (el && container) {
-              if (shouldScrollToUnread()) {
-                // Scroll to space the unread message and badge at the top
-                container.scrollTop = Math.max(0, el.offsetTop - 60);
-                if (chatId && scrollPositionsRef.current) {
-                   scrollPositionsRef.current[chatId] = { 
-                     scrollTop: container.scrollTop, 
-                     distanceFromBottom: container.scrollHeight - container.scrollTop,
-                     wasAtBottom: false 
-                   };
-                }
-                isAtBottomRef.current = false;
-                setIsAtBottom(false);
-                setHasNewMessages(true);
-              } else {
-                // They fit, scroll to bottom
-                container.scrollTop = container.scrollHeight;
-                isAtBottomRef.current = true;
-                setIsAtBottom(true);
+          if (info) {
+            if (info.doesNotFit) {
+              container.scrollTop = info.targetScroll;
+              if (chatId && scrollPositionsRef.current) {
+                 scrollPositionsRef.current[chatId] = { 
+                   scrollTop: container.scrollTop, 
+                   distanceFromBottom: container.scrollHeight - container.scrollTop,
+                   wasAtBottom: false 
+                 };
               }
-              return;
+              isAtBottomRef.current = false;
+              setIsAtBottom(false);
+              setHasNewMessages(true);
+            } else {
+              // They fit, scroll to bottom
+              container.scrollTop = container.scrollHeight;
+              isAtBottomRef.current = true;
+              setIsAtBottom(true);
             }
+            return;
           } else if (unreadCountOnEnterRef.current > 0 && isLoadingMore) {
             // We haven't found the unread boundary yet and are still loading. Stay near top.
             container.scrollTop = 0;
@@ -594,36 +608,17 @@ export function MessageList({
         onClick={(e) => {
           e.stopPropagation();
           const container = scrollContainerRef.current;
-          const badgeEl = document.getElementById('unread-badge-element');
-          
-          if (badgeEl && container) {
-            const maxScrollTop = container.scrollHeight - container.clientHeight;
-            // Scroll to place the "new messages" badge at the top
-            const targetScroll = Math.min(maxScrollTop, Math.max(0, badgeEl.offsetTop - 16));
-            
-            // If already at or past target scroll, scroll to bottom
-            const isAlreadyAtTarget = Math.abs(container.scrollTop - targetScroll) < 15;
-            
-            if (isAlreadyAtTarget) {
-              scrollToBottom('smooth');
-            } else {
-              container.scrollTo({
-                top: targetScroll,
-                behavior: 'smooth'
-              });
-            }
-          } else if (firstUnreadMessageIdRef.current && container) {
-            const el = document.getElementById(`message-${firstUnreadMessageIdRef.current}`);
-            if (el) {
-              const maxScrollTop = container.scrollHeight - container.clientHeight;
-              const targetScroll = Math.min(maxScrollTop, Math.max(0, el.offsetTop - 60));
-              const isAlreadyAtTarget = Math.abs(container.scrollTop - targetScroll) < 20;
-              
+          if (!container) return;
+
+          const info = getUnreadTargetPos();
+          if (info && hasNewMessages) {
+            if (info.doesNotFit) {
+              const isAlreadyAtTarget = Math.abs(container.scrollTop - info.targetScroll) < 15;
               if (isAlreadyAtTarget) {
                 scrollToBottom('smooth');
               } else {
                 container.scrollTo({
-                  top: targetScroll,
+                  top: info.targetScroll,
                   behavior: 'smooth'
                 });
               }
