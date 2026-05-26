@@ -3,7 +3,7 @@ import { safeLocalStorage } from '@/lib/safeStorage';
 
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { Download, FileIcon, PlayCircle, Lock, Type, X } from 'lucide-react';
+import { Download, FileIcon, PlayCircle, Lock, Type, X, Loader2 } from 'lucide-react';
 import type { Socket } from 'socket.io-client';
 import { getFile } from '@/lib/db';
 import { ImageViewer } from './ImageViewer';
@@ -16,6 +16,65 @@ import { keyRing } from '@/lib/keyRing';
 import dynamic from 'next/dynamic';
 
 const DocumentViewer = dynamic(() => import('./DocumentViewer').then(mod => mod.DocumentViewer), { ssr: false });
+
+const getExtensionVisuals = (name: string, mime: string) => {
+  const ext = (name ? name.split('.').pop() : '').toLowerCase();
+  
+  if (mime === 'application/pdf' || ext === 'pdf') {
+    return {
+      ext: 'PDF',
+      bg: 'bg-rose-50/90 dark:bg-rose-950/25 border-rose-200/50 dark:border-rose-900/40',
+      badgeBg: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 dark:bg-rose-400/10',
+      text: 'text-rose-500 dark:text-rose-400',
+    };
+  }
+  if (mime?.includes('word') || ['doc', 'docx', 'odt', 'rtf'].includes(ext)) {
+    return {
+      ext: ext.toUpperCase() || 'DOC',
+      bg: 'bg-blue-50/90 dark:bg-blue-950/25 border-blue-200/50 dark:border-blue-900/40',
+      badgeBg: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 dark:bg-blue-400/10',
+      text: 'text-blue-500 dark:text-blue-400',
+    };
+  }
+  if (mime?.includes('excel') || mime?.includes('spreadsheet') || ['xls', 'xlsx', 'csv', 'ods'].includes(ext)) {
+    return {
+      ext: ext.toUpperCase() || 'XLS',
+      bg: 'bg-emerald-50/90 dark:bg-emerald-950/25 border-emerald-200/50 dark:border-emerald-900/40',
+      badgeBg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 dark:bg-emerald-400/10',
+      text: 'text-emerald-500 dark:text-emerald-400',
+    };
+  }
+  if (mime?.includes('presentation') || ['ppt', 'pptx', 'key'].includes(ext)) {
+    return {
+      ext: ext.toUpperCase() || 'PPT',
+      bg: 'bg-amber-50/90 dark:bg-amber-950/25 border-amber-200/50 dark:border-amber-900/40',
+      badgeBg: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 dark:bg-amber-400/10',
+      text: 'text-amber-500 dark:text-amber-400',
+    };
+  }
+  if (mime?.includes('zip') || mime?.includes('tar') || mime?.includes('rar') || ['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) {
+    return {
+      ext: ext.toUpperCase() || 'ZIP',
+      bg: 'bg-yellow-50/90 dark:bg-yellow-950/25 border-yellow-250/50 dark:border-yellow-900/40',
+      badgeBg: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 dark:bg-yellow-400/10',
+      text: 'text-yellow-500 dark:text-yellow-400',
+    };
+  }
+  if (mime?.includes('text') || ['txt', 'md', 'json', 'xml', 'yaml', 'yml'].includes(ext)) {
+    return {
+      ext: ext.toUpperCase() || 'TXT',
+      bg: 'bg-neutral-50 dark:bg-neutral-900/80 border-neutral-200 dark:border-neutral-800',
+      badgeBg: 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 dark:bg-neutral-400/10',
+      text: 'text-neutral-500 dark:text-neutral-450',
+    };
+  }
+  return {
+    ext: ext.toUpperCase() || 'FILE',
+    bg: 'bg-indigo-50/90 dark:bg-indigo-950/25 border-indigo-200/50 dark:border-indigo-900/40',
+    badgeBg: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 dark:bg-indigo-400/10',
+    text: 'text-indigo-500 dark:text-indigo-400',
+  };
+};
 
 export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false, thumbnailClassName, encryptionData, activeGroup, messageId }: { fileData: any, senderId: string, socket: Socket | null, isThumbnail?: boolean, thumbnailClassName?: string, encryptionData?: any, activeGroup?: any, messageId?: string }) => {
   const { t } = useLanguage();
@@ -547,13 +606,32 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
   const hasDimensions = !!containerStyle;
 
   if (isThumbnail) {
+    const isLargeTile = thumbnailClassName?.includes('!w-full');
+    const extVisuals = getExtensionVisuals(fileData.name, fileData.mime);
+
     const handleThumbnailClick = (e: React.MouseEvent) => {
       e.stopPropagation();
       e.preventDefault();
       if (loading && !shouldDownload) {
         setShouldDownload(true);
-      } else if (!loading && (fileData.mime?.startsWith('image/') || fileData.mime?.startsWith('video/'))) {
-        setIsViewerOpen(true);
+      } else if (!loading) {
+        const isPdf = fileData.mime === 'application/pdf';
+        const isImg = fileData.mime?.startsWith('image/');
+        const isVid = fileData.mime?.startsWith('video/');
+        if (isPdf || isImg || isVid) {
+          setIsViewerOpen(true);
+        } else {
+          if (blobUrl) {
+            const a = document.createElement('a');
+            a.download = fileData.name || 'file';
+            a.href = blobUrl;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          } else {
+            setShouldDownload(true);
+          }
+        }
       }
     };
 
@@ -574,12 +652,40 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
           </div>
         );
       }
+      
+      if (isLargeTile) {
+        return (
+          <div onClick={handleThumbnailClick} className={`relative flex flex-col items-center justify-center cursor-pointer overflow-hidden rounded-xl border border-neutral-200/50 dark:border-neutral-700/50 shadow-sm ${extVisuals.bg} ${thumbnailClassName || 'w-full h-full'}`}>
+            <div className={`text-4xl font-black tracking-wider opacity-35 select-none ${extVisuals.text}`}>
+              {extVisuals.ext}
+            </div>
+            <div className="absolute top-3 left-3">
+              <FileIcon className={`w-5 h-5 ${extVisuals.text}`} />
+            </div>
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/5 dark:bg-black/20 backdrop-blur-xs gap-1.5 z-10">
+              {isDecrypting ? (
+                <Lock size={20} className="text-neutral-700 dark:text-neutral-300 animate-pulse" />
+              ) : (
+                <Loader2 size={24} className="text-indigo-500 animate-spin" />
+              )}
+              {progress > 0 && progress < 100 && (
+                <span className="text-[10px] font-bold text-neutral-700 dark:text-neutral-300 bg-white/70 dark:bg-black/50 px-1.5 py-0.5 rounded-full">{progress}%</span>
+              )}
+            </div>
+            <div className="absolute bottom-0 inset-x-0 bg-white/80 dark:bg-neutral-900/85 backdrop-blur-xs border-t border-neutral-150 dark:border-neutral-800 p-2 text-center select-none">
+              <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 truncate">{fileData.name}</p>
+            </div>
+          </div>
+        );
+      }
+
       return (
-        <div onClick={handleThumbnailClick} className={`rounded-lg bg-neutral-100 flex items-center justify-center border border-neutral-200 shrink-0 cursor-pointer ${thumbnailClassName || 'w-12 h-12'}`}>
+        <div onClick={handleThumbnailClick} className={`rounded-lg ${extVisuals.bg} flex items-center justify-center border border-neutral-200 shrink-0 cursor-pointer ${thumbnailClassName || 'w-12 h-12'}`}>
           {isDecrypting ? <Lock size={20} className="text-indigo-400 animate-pulse" /> : <Download size={20} className={hasError ? 'text-red-400' : 'text-neutral-400 animate-pulse'} />}
         </div>
       );
     }
+
     if (fileData.mime.startsWith('image/')) {
       return (
         <div onClick={handleThumbnailClick} className={`relative shrink-0 cursor-pointer ${thumbnailClassName || 'w-12 h-12'}`}>
@@ -599,6 +705,7 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
         </div>
       );
     }
+
     if (fileData.mime.startsWith('video/')) {
       return (
         <div onClick={handleThumbnailClick} className={`relative shrink-0 rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100 flex items-center justify-center cursor-pointer ${thumbnailClassName || 'w-12 h-12'}`}>
@@ -631,23 +738,144 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
         </div>
       );
     }
+
     if (fileData.mime.startsWith('audio/')) {
       return (
-        <div className={`rounded-lg bg-indigo-50 flex items-center justify-center border border-indigo-100 shrink-0 ${thumbnailClassName || 'w-12 h-12'}`}>
-          <PlayCircle size={20} className="text-indigo-500" />
+        <div className={`rounded-lg bg-indigo-50 dark:bg-indigo-950/25 flex flex-col items-center justify-center border border-indigo-100 dark:border-indigo-900/30 shrink-0 cursor-pointer ${thumbnailClassName || 'w-12 h-12'}`}>
+          <PlayCircle size={isLargeTile ? 32 : 20} className="text-indigo-500 dark:text-indigo-400 animate-pulse" />
+          {isLargeTile && (
+            <div className="absolute bottom-0 inset-x-0 bg-white/80 dark:bg-neutral-900/85 backdrop-blur-xs border-t border-neutral-150 dark:border-neutral-800 p-2 text-center select-none">
+              <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 truncate">{fileData.name}</p>
+            </div>
+          )}
         </div>
       );
     }
-    if (fileData.mime === 'application/pdf') {
+
+    /* 
+     * ==========================================
+     * ВАЖНО / IMPORTANT - DO NOT REMOVE!
+     * Мы используем эту красивую подложку с БОЛЬШИМИ буквами расширения файла (PDF, ZIP, DOCX),
+     * если у файла нет сгенерированного превью-изображения (thumbnail).
+     * Если превью есть (для PDF оно генерируется при первом просмотре), мы натягиваем его как фоновую картинку.
+     * ==========================================
+     */
+    if (fileData.thumbnail) {
       return (
-        <div onClick={handleThumbnailClick} className={`relative shrink-0 rounded-lg overflow-hidden border border-neutral-200 bg-neutral-100 flex items-center justify-center cursor-pointer ${thumbnailClassName || 'w-12 h-12'}`}>
-          <FileIcon size={20} className="text-neutral-500 drop-shadow-md z-10" />
+        <div onClick={handleThumbnailClick} className={`relative rounded-xl overflow-hidden cursor-pointer group bg-neutral-100 dark:bg-neutral-800 shadow-sm border border-neutral-200/50 dark:border-neutral-700/50 ${thumbnailClassName || 'w-12 h-12'}`}>
+          <Image 
+            src={fileData.thumbnail} 
+            alt={fileData.name || ""} 
+            fill 
+            className="object-cover group-hover:scale-105 transition-transform duration-300" 
+            unoptimized
+          />
+          <div className="absolute top-2 left-2 z-10">
+            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-xs ${extVisuals.badgeBg}`}>
+              {extVisuals.ext}
+            </span>
+          </div>
+          {isLargeTile && (
+            <div className="absolute bottom-0 inset-x-0 bg-white/85 dark:bg-neutral-900/85 backdrop-blur-xs border-t border-neutral-150 dark:border-neutral-800 p-2 text-center select-none">
+              <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 truncate">{fileData.name}</p>
+              <p className="text-[9px] text-neutral-400 dark:text-neutral-500">{(fileData.size / 1024).toFixed(1)} KB</p>
+            </div>
+          )}
+          {isViewerOpen && blobUrl && fileData.mime === 'application/pdf' && (
+            <Portal>
+              <AnimatePresence>
+                <DocumentViewer 
+                  src={blobUrl} 
+                  alt={fileData.name} 
+                  onClose={() => setIsViewerOpen(false)} 
+                  onGenerateThumbnail={(thumb) => {
+                    if (!fileData.thumbnail && messageId && socket) {
+                      socket.emit('message:update-thumbnail', {
+                         messageId,
+                         thumbnail: thumb,
+                         chatId: activeGroup ? null : senderId,
+                         groupId: activeGroup?.id || null
+                      });
+                    }
+                  }}
+                />
+              </AnimatePresence>
+            </Portal>
+          )}
         </div>
       );
     }
+
+    if (isLargeTile) {
+      return (
+        <div onClick={handleThumbnailClick} className={`relative flex flex-col items-center justify-center cursor-pointer overflow-hidden rounded-xl border border-neutral-200/50 dark:border-neutral-700/50 shadow-sm ${extVisuals.bg} ${thumbnailClassName || 'w-full h-full'}`}>
+          <div className="absolute top-3 left-3 opacity-80">
+            <FileIcon className={`w-5 h-5 ${extVisuals.text}`} />
+          </div>
+          <div className="flex flex-col items-center justify-center -translate-y-2 select-none group-hover:scale-105 transition-transform duration-300">
+            <span className={`text-4xl font-black tracking-wider ${extVisuals.text}`}>
+              {extVisuals.ext}
+            </span>
+            <span className="text-[10px] font-medium text-neutral-400 dark:text-neutral-500 opacity-80 uppercase mt-0.5">
+              {(fileData.size / 1024).toFixed(1)} KB
+            </span>
+          </div>
+          <div className="absolute bottom-0 inset-x-0 bg-white/80 dark:bg-neutral-900/85 backdrop-blur-xs border-t border-neutral-150 dark:border-neutral-800 p-2 text-center select-none">
+            <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 truncate px-1">{fileData.name}</p>
+          </div>
+          
+          {isViewerOpen && blobUrl && fileData.mime === 'application/pdf' && (
+            <Portal>
+              <AnimatePresence>
+                <DocumentViewer 
+                  src={blobUrl} 
+                  alt={fileData.name} 
+                  onClose={() => setIsViewerOpen(false)} 
+                  onGenerateThumbnail={(thumb) => {
+                    if (!fileData.thumbnail && messageId && socket) {
+                      socket.emit('message:update-thumbnail', {
+                         messageId,
+                         thumbnail: thumb,
+                         chatId: activeGroup ? null : senderId,
+                         groupId: activeGroup?.id || null
+                      });
+                    }
+                  }}
+                />
+              </AnimatePresence>
+            </Portal>
+          )}
+        </div>
+      );
+    }
+
     return (
-      <div className={`rounded-lg bg-neutral-100 flex items-center justify-center border border-neutral-200 shrink-0 ${thumbnailClassName || 'w-12 h-12'}`}>
-        <FileIcon size={20} className="text-neutral-500" />
+      <div onClick={handleThumbnailClick} className={`rounded-xl flex flex-col items-center justify-center cursor-pointer border shadow-sm ${extVisuals.bg} ${thumbnailClassName || 'w-12 h-12'}`}>
+        <span className={`text-[10px] font-black tracking-wider ${extVisuals.text}`}>
+          {extVisuals.ext}
+        </span>
+        
+        {isViewerOpen && blobUrl && fileData.mime === 'application/pdf' && (
+          <Portal>
+            <AnimatePresence>
+              <DocumentViewer 
+                src={blobUrl} 
+                alt={fileData.name} 
+                onClose={() => setIsViewerOpen(false)} 
+                onGenerateThumbnail={(thumb) => {
+                  if (!fileData.thumbnail && messageId && socket) {
+                    socket.emit('message:update-thumbnail', {
+                       messageId,
+                       thumbnail: thumb,
+                       chatId: activeGroup ? null : senderId,
+                       groupId: activeGroup?.id || null
+                    });
+                  }
+                }}
+              />
+            </AnimatePresence>
+          </Portal>
+        )}
       </div>
     );
   }

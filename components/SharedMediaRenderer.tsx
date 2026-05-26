@@ -210,7 +210,58 @@ export function SharedMediaRenderer({ messages, activeTab, socket = null, active
     );
   }
 
-  if (activeTab === 'docs' || activeTab === 'audio') {
+  if (activeTab === 'docs') {
+    return (
+      /* 
+       * ==========================================
+       * ВАЖНО / IMPORTANT - DO NOT CHANGE / НЕ МЕНЯТЬ!
+       * ------------------------------------------
+       * Мы сохраняем файлы в виде КВАДРАТНЫХ плиток с СКРУГЛЕННЫМИ углами (rounded-xl)
+       * и с четкими, заметными ПРОМЕЖУТКАМИ между ними (gap-3 p-3), чтобы плитки НЕ сливались в одну сплошную кашу.
+       * Любые будущие правки ДОЛЖНЫ сохранять этот квадратный плиточный вид с зазорами!
+       * 
+       * ВНИМАНИЕ: Мы используем супер-надежный кроссбраузерный трюк "relative w-full pt-[100%] h-0"
+       * вместо класса "aspect-square". Чистый "aspect-square" в условиях Iframe-контейнеров на некоторых 
+       * браузерах схлопывает высоту грид-строк в 0, из-за чего плитки вертикально наезжают друг на друга.
+       * Пожалуйста, не меняйте "pt-[100%] h-0" обратно на "aspect-square"!
+       * ==========================================
+       */
+      <div 
+        className="grid grid-cols-3 gap-3 p-3 overflow-y-auto h-full scrollbar-thin scrollbar-thumb-neutral-200 dark:scrollbar-thumb-neutral-800 content-start"
+        onScroll={handleScroll}
+      >
+        {items.map((item, idx) => {
+          return (
+            <div 
+              key={idx}
+              className="relative w-full pt-[100%] h-0 cursor-pointer group bg-neutral-100 dark:bg-neutral-800 rounded-xl overflow-hidden block border border-neutral-200/50 dark:border-neutral-700/50 shadow-sm"
+            >
+              <div className="absolute inset-0">
+                <FileAttachment 
+                  fileData={item} 
+                  senderId={item.senderId || ''} 
+                  socket={socket} 
+                  activeGroup={activeGroup} 
+                  isThumbnail={true} 
+                  encryptionData={item.encryptionData}
+                  messageId={item.msgId}
+                  thumbnailClassName="absolute inset-0 !w-full !h-full !rounded-xl !border-none overflow-hidden transition-transform duration-300" 
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 dark:group-hover:bg-black/10 transition-colors pointer-events-none rounded-xl" />
+              </div>
+            </div>
+          );
+        })}
+        {isLoading && (
+          <div className="col-span-3 flex justify-center py-4">
+            <Loader2 className="w-6 h-6 animate-spin text-neutral-400" />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (activeTab === 'audio') {
     return (
       <div 
         className="flex flex-col gap-2 p-2 overflow-y-auto h-full scrollbar-thin scrollbar-thumb-neutral-200 dark:scrollbar-thumb-neutral-800"
