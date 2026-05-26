@@ -154,15 +154,28 @@ export function SharedMediaRenderer({ messages, activeTab, socket = null, active
 
   if (activeTab === 'media') {
     return (
+      /* 
+       * ==========================================
+       * ВАЖНО / IMPORTANT - DO NOT CHANGE / НЕ МЕНЯТЬ!
+       * ------------------------------------------
+       * Мы сохраняем медиа-файлы в виде КВАДРАТНЫХ плиток с СКРУГЛЕННЫМИ углами (rounded-xl)
+       * и с четкими, заметными ПРОМЕЖУТКАМИ между ними (gap-3 p-3), чтобы плитки НЕ сливались в одну сплошную кашу.
+       * Любые будущие правки ДОЛЖНЫ сохранять этот квадратный плиточный вид с зазорами!
+       * 
+       * We MUST keep this layout as a distinct grid of SQUARE tiles (aspect-square) with 
+       * rounded corners (rounded-xl) and clear visible spacing (gap-3 p-3) between them.
+       * Do NOT simplify or revert this to a seamless flat block.
+       * ==========================================
+       */
       <div 
-        className="grid grid-cols-3 gap-[2px] overflow-y-auto h-full scrollbar-thin scrollbar-thumb-neutral-200 dark:scrollbar-thumb-neutral-800 content-start"
+        className="grid grid-cols-3 gap-3 p-3 overflow-y-auto h-full scrollbar-thin scrollbar-thumb-neutral-200 dark:scrollbar-thumb-neutral-800 content-start"
         onScroll={handleScroll}
       >
         {items.map((item, idx) => {
           return (
             <div 
               key={idx}
-              className="relative pt-[100%] cursor-pointer group bg-neutral-100 dark:bg-neutral-800 overflow-hidden block"
+              className="relative aspect-square cursor-pointer group bg-neutral-100 dark:bg-neutral-800 rounded-xl overflow-hidden block border border-neutral-200/50 dark:border-neutral-700/50 shadow-sm"
             >
               <div className="absolute inset-0">
                 <FileAttachment 
@@ -173,11 +186,11 @@ export function SharedMediaRenderer({ messages, activeTab, socket = null, active
                   isThumbnail={true} 
                   encryptionData={item.encryptionData}
                   messageId={item.msgId}
-                  thumbnailClassName="absolute inset-0 !w-full !h-full !rounded-none !border-none overflow-hidden [&>img]:object-cover [&>video]:object-cover [&>img]:!rounded-none [&>img]:group-hover:scale-105 [&>video]:group-hover:scale-105 transition-transform duration-300" 
+                  thumbnailClassName="absolute inset-0 !w-full !h-full !rounded-xl !border-none overflow-hidden [&>img]:object-cover [&>video]:object-cover [&>img]:!rounded-xl [&>img]:group-hover:scale-105 [&>video]:group-hover:scale-105 transition-transform duration-300" 
                 />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors pointer-events-none" />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none rounded-xl" />
                 {item.isVideo && (
-                  <span className="absolute bottom-1 right-1 bg-black/50 text-white text-[10px] px-1 rounded pointer-events-none z-10">Видео</span>
+                  <span className="absolute bottom-1.5 right-1.5 bg-black/60 backdrop-blur-xs text-white text-[10px] font-medium px-1.5 py-0.5 rounded-md pointer-events-none z-10">Видео</span>
                 )}
               </div>
             </div>

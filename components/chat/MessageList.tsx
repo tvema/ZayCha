@@ -85,6 +85,8 @@ export function MessageList({
   const [hasNewMessages, setHasNewMessages] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const isAtBottomRef = useRef(isAtBottom);
+  const [unreadBadgeId, setUnreadBadgeId] = useState<string | null>(null);
+  const [prevChatId, setPrevChatId] = useState<string | null>(null);
 
   // Still keep this for any external state changes if needed, but we will also 
   // update the ref synchronously in critical paths to avoid race conditions.
@@ -124,7 +126,8 @@ export function MessageList({
   const hasUserScrolledRef = useRef(false);
 
   // Update isFirstRenderOfChat synchronously during render to disable animations immediately
-  if (chatId !== currentChatId.current) {
+  if (chatId !== prevChatId) {
+    setPrevChatId(chatId);
     isFirstRenderOfChat.current = true;
     hasUserScrolledRef.current = false;
     const newUnreadCount = activeContact?.unread_count || activeGroup?.unread_count || 0;
@@ -132,9 +135,12 @@ export function MessageList({
     // We do NOT set firstUnreadMessageIdRef here if messages are empty, we will do it when isFirstLoad triggers
     if (newUnreadCount > 0 && filteredMessages.length > 0) {
       const idx = Math.max(0, filteredMessages.length - newUnreadCount);
-      firstUnreadMessageIdRef.current = filteredMessages[idx]?.id || null;
+      const targetId = filteredMessages[idx]?.id || null;
+      firstUnreadMessageIdRef.current = targetId;
+      setUnreadBadgeId(targetId);
     } else {
       firstUnreadMessageIdRef.current = null;
+      setUnreadBadgeId(null);
     }
   }
   
@@ -163,6 +169,8 @@ export function MessageList({
     }
     
     setHasNewMessages(false);
+    setUnreadBadgeId(null);
+    firstUnreadMessageIdRef.current = null;
   }, [chatId]);
 
   const handleScroll = useCallback(() => {
@@ -221,6 +229,8 @@ export function MessageList({
     
     if (atBottom) {
       setHasNewMessages(false);
+      setUnreadBadgeId(null);
+      firstUnreadMessageIdRef.current = null;
     }
   }, [chatId, filteredMessages.length, setIsAtBottom, hasMoreMessages, isLoadingMore, loadMoreMessages]);
 
@@ -285,7 +295,9 @@ export function MessageList({
 
         if (isUpToDate) {
           const idx = Math.max(0, filteredMessages.length - unreadCountOnEnterRef.current);
-          firstUnreadMessageIdRef.current = filteredMessages[idx]?.id || null;
+          const targetId = filteredMessages[idx]?.id || null;
+          firstUnreadMessageIdRef.current = targetId;
+          setUnreadBadgeId(targetId);
           justComputedFirstUnread = true;
         }
       }
@@ -460,6 +472,7 @@ export function MessageList({
           // Set first unread marker if we were scrolled up and another user sent a message
           if (!firstUnreadMessageIdRef.current) {
             firstUnreadMessageIdRef.current = lastMessage.id;
+            setUnreadBadgeId(lastMessage.id);
           }
         }
       }
@@ -549,7 +562,7 @@ export function MessageList({
           const nextMsg = index < filteredMessages.length - 1 ? filteredMessages[index + 1] : null;
           const repliedMsg = msg.reply_to ? filteredMessages.find(m => m.id === msg.reply_to) : null;
           
-          const isFirstUnread = firstUnreadMessageIdRef.current === msg.id;
+          const isFirstUnread = unreadBadgeId === msg.id;
 
           return (
             <React.Fragment key={msg.id}>
