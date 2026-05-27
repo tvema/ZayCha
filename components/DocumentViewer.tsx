@@ -174,54 +174,55 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
         <div className="text-white/90 text-sm font-medium truncate max-w-[50%] px-2 pointer-events-auto">
           {alt}
         </div>
-        <div className="flex items-center gap-2 pointer-events-auto shadow-lg bg-black/40 rounded-full px-2 py-1">
+        <div className="flex items-center gap-2 pointer-events-auto shadow-lg bg-black/40 rounded-full px-2 py-1" onClick={(e) => e.stopPropagation()}>
           {numPages > 0 && (
             <>
-              <button onClick={() => setScale(s => Math.max(0.5, s - 0.2))} className="p-2.5 text-white/70 hover:text-white hover:bg-white/20 rounded-full transition-all">
+              <button onClick={(e) => { e.stopPropagation(); setScale(s => Math.max(0.5, s - 0.2)); }} className="p-2.5 text-white/70 hover:text-white hover:bg-white/20 rounded-full transition-all">
                 <ZoomOut size={20} />
               </button>
-              <button onClick={() => setScale(s => Math.min(3, s + 0.2))} className="p-2.5 text-white/70 hover:text-white hover:bg-white/20 rounded-full transition-all">
+              <button onClick={(e) => { e.stopPropagation(); setScale(s => Math.min(3, s + 0.2)); }} className="p-2.5 text-white/70 hover:text-white hover:bg-white/20 rounded-full transition-all">
                 <ZoomIn size={20} />
               </button>
             </>
           )}
-          <button onClick={downloadFile} className="p-2.5 text-white/70 hover:text-white hover:bg-white/20 rounded-full transition-all" title="Download">
+          <button onClick={(e) => { e.stopPropagation(); downloadFile(); }} className="p-2.5 text-white/70 hover:text-white hover:bg-white/20 rounded-full transition-all" title="Download">
             <Download size={20} />
           </button>
-          <button onClick={onClose} className="p-2.5 text-white/70 hover:text-white hover:bg-white/20 rounded-full transition-all">
+          <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="p-2.5 text-white/70 hover:text-white hover:bg-white/20 rounded-full transition-all">
              <X size={20} />
           </button>
         </div>
       </div>
 
-      <div className="flex-1 w-full h-full pt-20 pb-20 px-4 overflow-auto flex justify-center items-start pointer-events-auto">
+      <div className="flex-1 w-full h-full pt-20 pb-20 px-4 overflow-auto flex justify-center items-start pointer-events-auto" onClick={(e) => e.stopPropagation()}>
         {loading ? (
-          <div className="flex items-center justify-center p-12 mt-20">
+          <div className="flex items-center justify-center p-12 mt-20" onClick={(e) => e.stopPropagation()}>
              <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : (
           <canvas 
             ref={canvasRef} 
             className="bg-white shadow-xl max-w-full h-auto transition-transform origin-top"
+            onClick={(e) => e.stopPropagation()}
           />
         )}
       </div>
 
       {numPages > 1 && !loading && (
-        <div className="absolute bottom-6 inset-x-0 flex justify-center pointer-events-none z-10">
-          <div className="bg-black/60 backdrop-blur-md rounded-full px-4 py-2 flex items-center gap-4 pointer-events-auto shadow-lg">
+        <div className="absolute bottom-6 inset-x-0 flex justify-center pointer-events-none z-10" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-black/60 backdrop-blur-md rounded-full px-4 py-2 flex items-center gap-4 pointer-events-auto shadow-lg" onClick={(e) => e.stopPropagation()}>
             <button 
-              onClick={() => setPageNumber(p => Math.max(1, p - 1))}
+              onClick={(e) => { e.stopPropagation(); setPageNumber(p => Math.max(1, p - 1)); }}
               disabled={pageNumber <= 1}
               className="text-white disabled:opacity-30 hover:opacity-80 transition-opacity p-1"
             >
               <ChevronLeft size={20} />
             </button>
-            <span className="text-white text-sm font-medium w-16 text-center shadow-none border-none bg-transparent">
+            <span className="text-white text-sm font-medium w-16 text-center shadow-none border-none bg-transparent" onClick={(e) => e.stopPropagation()}>
                {pageNumber} / {numPages}
             </span>
             <button 
-              onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
+              onClick={(e) => { e.stopPropagation(); setPageNumber(p => Math.min(numPages, p + 1)); }}
               disabled={pageNumber >= numPages}
               className="text-white disabled:opacity-30 hover:opacity-80 transition-opacity p-1"
             >

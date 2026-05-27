@@ -182,7 +182,7 @@ export function SharedMediaRenderer({ messages, activeTab, socket = null, active
         {items.map((item, idx) => {
           return (
             <div 
-              key={idx}
+              key={`${activeTab}-${item.msgId}`}
               className="relative w-full pt-[100%] h-0 cursor-pointer group bg-neutral-100 dark:bg-neutral-800 rounded-xl overflow-hidden block border border-neutral-200/50 dark:border-neutral-700/50 shadow-sm"
             >
               <div className="absolute inset-0">
@@ -236,7 +236,7 @@ export function SharedMediaRenderer({ messages, activeTab, socket = null, active
         {items.map((item, idx) => {
           return (
             <div 
-              key={idx}
+              key={`${activeTab}-${item.msgId}`}
               className="relative w-full pt-[100%] h-0 cursor-pointer group bg-neutral-100 dark:bg-neutral-800 rounded-xl overflow-hidden block border border-neutral-200/50 dark:border-neutral-700/50 shadow-sm"
             >
               <div className="absolute inset-0">
@@ -272,7 +272,7 @@ export function SharedMediaRenderer({ messages, activeTab, socket = null, active
       >
         {items.map((item, idx) => (
           <FileAttachment 
-            key={idx} 
+            key={`${activeTab}-${item.msgId}`} 
             fileData={item} 
             senderId={item.senderId || ''} 
             socket={socket} 
@@ -297,7 +297,7 @@ export function SharedMediaRenderer({ messages, activeTab, socket = null, active
         onScroll={handleScroll}
       >
         {items.map((item, idx) => (
-          <a key={idx} href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-neutral-50 dark:bg-neutral-800/50 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl transition-colors">
+          <a key={`${activeTab}-${item.msgId}-${idx}`} href={item.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-neutral-50 dark:bg-neutral-800/50 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl transition-colors">
             <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg flex items-center justify-center shrink-0">
               <LinkIcon size={20} />
             </div>
