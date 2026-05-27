@@ -193,6 +193,11 @@ db.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (post_id, user_id)
   );
+
+  CREATE TABLE IF NOT EXISTS message_thumbnails (
+    message_id TEXT PRIMARY KEY,
+    thumbnail TEXT
+  );
 `);
 
 console.log('Checking for migrations...');

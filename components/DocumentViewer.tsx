@@ -169,7 +169,7 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col touch-none">
+    <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col touch-none" onClick={(e) => e.stopPropagation()}>
       <div className="absolute top-0 inset-x-0 p-4 flex pl-4 pr-16 md:pr-4 justify-between items-center z-10 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
         <div className="text-white/90 text-sm font-medium truncate max-w-[50%] px-2 pointer-events-auto">
           {alt}

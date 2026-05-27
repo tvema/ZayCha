@@ -656,7 +656,7 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
       if (isLargeTile) {
         return (
           <div onClick={handleThumbnailClick} className={`relative flex flex-col items-center justify-center cursor-pointer overflow-hidden rounded-xl border border-neutral-200/50 dark:border-neutral-700/50 shadow-sm ${extVisuals.bg} ${thumbnailClassName || 'w-full h-full'}`}>
-            <div className={`text-4xl font-black tracking-wider opacity-35 select-none ${extVisuals.text}`}>
+            <div className={`text-2xl font-black tracking-wider opacity-35 select-none ${extVisuals.text}`}>
               {extVisuals.ext}
             </div>
             <div className="absolute top-3 left-3">
@@ -813,7 +813,7 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
             <FileIcon className={`w-5 h-5 ${extVisuals.text}`} />
           </div>
           <div className="flex flex-col items-center justify-center -translate-y-2 select-none group-hover:scale-105 transition-transform duration-300">
-            <span className={`text-4xl font-black tracking-wider ${extVisuals.text}`}>
+            <span className={`text-2xl font-black tracking-wider ${extVisuals.text}`}>
               {extVisuals.ext}
             </span>
             <span className="text-[10px] font-medium text-neutral-400 dark:text-neutral-500 opacity-80 uppercase mt-0.5">

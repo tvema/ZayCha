@@ -236,6 +236,9 @@ export function MessageItem({
           parsedContent.size = parsedContent.fileSize;
         }
       }
+      if (parsedContent && parsedContent.type === 'file' && (msg as any).external_thumbnail) {
+        parsedContent.thumbnail = (msg as any).external_thumbnail;
+      }
     } catch (e) {}
   }
 

@@ -126,7 +126,13 @@ export function useSocketEvents({
     socket.on('message:edited', async (data) => {
       const decryptedMsg = await decryptMessageIfNeeded({ id: data.messageId, content: data.content, encryption_data: data.encryption_data, group_id: data.groupId } as any, userRef.current?.id, groupsRef.current);
       setMessages(prev => prev.map(m => 
-        m.id === data.messageId ? { ...m, content: decryptedMsg.content, is_edited: true, encryption_data: data.encryption_data } : m
+        m.id === data.messageId ? { 
+          ...m, 
+          content: decryptedMsg.content, 
+          is_edited: true, 
+          encryption_data: data.encryption_data,
+          external_thumbnail: (data as any).external_thumbnail || (m as any).external_thumbnail
+        } : m
       ));
     });
 

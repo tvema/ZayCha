@@ -274,32 +274,43 @@ export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<
     socket.on('message:update-thumbnail', (data) => {
       const { messageId, thumbnail, chatId, groupId } = data;
       try {
+        // Store in out-of-band message_thumbnails table for both encrypted and unencrypted messages
+        db.prepare('CREATE TABLE IF NOT EXISTS message_thumbnails (message_id TEXT PRIMARY KEY, thumbnail TEXT)').run();
+        db.prepare('INSERT OR REPLACE INTO message_thumbnails (message_id, thumbnail) VALUES (?, ?)').run(messageId, thumbnail);
+
         const msg = db.prepare('SELECT content, encryption_data, is_edited FROM messages WHERE id = ?').get(messageId) as any;
+        let finalContent = msg ? msg.content : '';
+
         if (msg) {
-          const content = JSON.parse(msg.content);
-          if (typeof content === 'object' && (content.type === 'file' || content.mime)) {
-            content.thumbnail = thumbnail;
-            const newContentStr = JSON.stringify(content);
-            db.prepare('UPDATE messages SET content = ? WHERE id = ?').run(newContentStr, messageId);
-            
-            const updateData = { 
-              messageId, 
-              content: newContentStr, 
-              encryption_data: msg.encryption_data ? JSON.parse(msg.encryption_data) : null, 
-              is_edited: msg.is_edited === 1, 
-              chatId, 
-              groupId 
-            };
-            
-            if (groupId) {
-              io.to(`group:${groupId}`).emit('message:edited', updateData);
-            } else if (chatId) {
-              const receiverSockets = connectedUsers.get(chatId);
-              if (receiverSockets) receiverSockets.forEach(socketId => io.to(socketId).emit('message:edited', updateData));
-              const senderSockets = connectedUsers.get(userId);
-              if (senderSockets) senderSockets.forEach(socketId => io.to(socketId).emit('message:edited', updateData));
+          try {
+            const content = JSON.parse(msg.content);
+            if (typeof content === 'object' && (content.type === 'file' || content.mime)) {
+              content.thumbnail = thumbnail;
+              finalContent = JSON.stringify(content);
+              db.prepare('UPDATE messages SET content = ? WHERE id = ?').run(finalContent, messageId);
             }
+          } catch (jsonErr) {
+            // Decryption/parsing failed because msg.content is highly likely encrypted. This is expected.
           }
+        }
+
+        const updateData = { 
+          messageId, 
+          content: finalContent, 
+          external_thumbnail: thumbnail,
+          encryption_data: msg && msg.encryption_data ? JSON.parse(msg.encryption_data) : null, 
+          is_edited: msg && msg.is_edited === 1, 
+          chatId, 
+          groupId 
+        };
+        
+        if (groupId) {
+          io.to(`group:${groupId}`).emit('message:edited', updateData);
+        } else if (chatId) {
+          const receiverSockets = connectedUsers.get(chatId);
+          if (receiverSockets) receiverSockets.forEach(socketId => io.to(socketId).emit('message:edited', updateData));
+          const senderSockets = connectedUsers.get(userId);
+          if (senderSockets) senderSockets.forEach(socketId => io.to(socketId).emit('message:edited', updateData));
         }
       } catch (e) {
         console.error('Failed to update message thumbnail:', e);

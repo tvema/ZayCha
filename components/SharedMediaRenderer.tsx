@@ -99,6 +99,9 @@ export function SharedMediaRenderer({ messages, activeTab, socket = null, active
       try {
         const metadata = JSON.parse(msg.content);
         if (metadata.type === 'file') {
+          if ((msg as any).external_thumbnail) {
+            metadata.thumbnail = (msg as any).external_thumbnail;
+          }
           const type = metadata.mime?.toLowerCase() || '';
           const isImage = type.startsWith('image/');
           const isAudio = type.startsWith('audio/');

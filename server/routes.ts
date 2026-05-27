@@ -1251,7 +1251,7 @@ export function setupRoutes(server: express.Express, io: any, connectedUsers: Ma
       let messages;
       if (isGroup) {
         let query = `
-          SELECT m.*, 
+          SELECT m.*, mt.thumbnail as external_thumbnail,
                  u.username as sender_username, u.first_name as sender_first_name, u.last_name as sender_last_name, u.avatar_url as sender_avatar_url,
                  u2.username as forwarded_from_username,
                  (SELECT json_group_array(json_object('id', r.id, 'emoji', r.emoji, 'user_id', r.user_id))
@@ -1259,6 +1259,7 @@ export function setupRoutes(server: express.Express, io: any, connectedUsers: Ma
           FROM messages m
           LEFT JOIN users u ON m.sender_id = u.id
           LEFT JOIN users u2 ON m.forwarded_from = u2.id
+          LEFT JOIN message_thumbnails mt ON m.id = mt.message_id
           WHERE m.group_id = ?
         `;
         const params: any[] = [contactId];
@@ -1283,7 +1284,7 @@ export function setupRoutes(server: express.Express, io: any, connectedUsers: Ma
           .run(contactId, req.user.userId);
       } else {
         let query = `
-          SELECT m.*, 
+          SELECT m.*, mt.thumbnail as external_thumbnail,
                  u.username as sender_username, u.first_name as sender_first_name, u.last_name as sender_last_name, u.avatar_url as sender_avatar_url,
                  u2.username as forwarded_from_username,
                  (SELECT json_group_array(json_object('id', r.id, 'emoji', r.emoji, 'user_id', r.user_id))
@@ -1291,6 +1292,7 @@ export function setupRoutes(server: express.Express, io: any, connectedUsers: Ma
           FROM messages m
           LEFT JOIN users u ON m.sender_id = u.id
           LEFT JOIN users u2 ON m.forwarded_from = u2.id
+          LEFT JOIN message_thumbnails mt ON m.id = mt.message_id
           WHERE ((m.sender_id = ? AND m.receiver_id = ?)
              OR (m.sender_id = ? AND m.receiver_id = ?))
         `;
@@ -1335,8 +1337,9 @@ export function setupRoutes(server: express.Express, io: any, connectedUsers: Ma
       let messages;
       if (isGroup) {
         let query = `
-          SELECT m.*
+          SELECT m.*, mt.thumbnail as external_thumbnail
           FROM messages m
+          LEFT JOIN message_thumbnails mt ON m.id = mt.message_id
           WHERE m.group_id = ? 
           AND (m.content LIKE '%"type":"file"%' OR m.content LIKE '%"type":"link"%' OR m.content LIKE '%http%' OR m.is_media = 1)
         `;
@@ -1353,8 +1356,9 @@ export function setupRoutes(server: express.Express, io: any, connectedUsers: Ma
         messages = db.prepare(query).all(...params);
       } else {
         let query = `
-          SELECT m.*
+          SELECT m.*, mt.thumbnail as external_thumbnail
           FROM messages m
+          LEFT JOIN message_thumbnails mt ON m.id = mt.message_id
           WHERE ((m.sender_id = ? AND m.receiver_id = ?)
              OR (m.sender_id = ? AND m.receiver_id = ?))
           AND (m.content LIKE '%"type":"file"%' OR m.content LIKE '%"type":"link"%' OR m.content LIKE '%http%' OR m.is_media = 1)
