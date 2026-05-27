@@ -345,6 +345,10 @@ export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<
       }
     });
 
+    // === MESSAGE DELIVERY STATUS LOGIC ===
+    // 'message:delivered' is fired when a recipient gets a new message.
+    // We update its status in the db to 'delivered' (but only if it's currently 'sent').
+    // Then we broadcast the status update back to the sender's sockets.
     socket.on('message:delivered', (data) => {
       const { messageIds, senderId } = data;
       if (!messageIds || !messageIds.length) return;
@@ -365,6 +369,9 @@ export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<
       }
     });
 
+    // === MESSAGE READ STATUS LOGIC ===
+    // 'message:read' is triggered when specific messages are read by the recipient.
+    // We update db status to 'read' (if not already read) and notify the sender via 'message:status_update'.
     socket.on('message:read', (data) => {
       const { messageIds, senderId } = data;
       if (!messageIds || !messageIds.length) return;

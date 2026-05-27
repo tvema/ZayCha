@@ -547,6 +547,13 @@ export function MessageItem({
                     )}
                     {isMine && (
                       <div className="ml-1 flex items-center">
+                        {/* 
+                          === MESSAGE STATUS DELIVERY LIFECYCLE ===
+                          1. 'sending': The user sends a message. It is temporarily put into the client state with 'sending' status and a Clock icon.
+                          2. 'sent': Once the server stores the message in SQLite, it responds back. The status becomes 'sent' representing a single checkmark.
+                          3. 'delivered': When the recipient's client receives the message, they signal back with 'message:delivered'. The status transitions to 'delivered' rendering two gray checkmarks.
+                          4. 'read': When the recipient views the active chat or reads new incoming messages, they signal 'message:read' / 'contact:read'. The sender gets 'message:status_update' with status 'read' rendering two sky blue checkmarks.
+                        */}
                         {msg.status === 'sending' && <Clock size={12} className="opacity-70" />}
                         {msg.status === 'sent' && <Check size={14} className="opacity-80" />}
                         {msg.status === 'delivered' && <CheckCheck size={14} className="opacity-80" />}

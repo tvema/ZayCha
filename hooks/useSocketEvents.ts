@@ -243,6 +243,10 @@ export function useSocketEvents({
     });
 
     socket.on('message:status_update', (data: { messageIds: string[], status: 'delivered' | 'read' }) => {
+      // === PROTECTIVE LOGIC FOR STATUS UPDATES ===
+      // This state machine ensures the status transition always moves forward:
+      // sending -> sent (1 tick) -> delivered (2 ticks, gray) -> read (2 ticks, sky blue).
+      // We explicitly check and prevent downgrading from 'read' to 'delivered'.
       setMessages(prev => prev.map(msg => {
         if (data.messageIds.includes(msg.id)) {
           // Do not downgrade from read to delivered
