@@ -57,7 +57,7 @@ export function useChat() {
         }
       }
     } catch (error) {
-      console.error('Failed to fetch feed posts', error);
+      console.warn('Failed to fetch feed posts', error);
     }
   }, [token, user?.id]);
 
@@ -152,7 +152,7 @@ export function useChat() {
   // Eagerly hydrate IndexedDB with private key for SW decryption
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      keyRing.getPrivateKey().catch(console.error);
+      keyRing.getPrivateKey().catch(console.warn);
     }
   }, []);
 
@@ -201,10 +201,10 @@ export function useChat() {
             setUser(updatedUser);
             safeLocalStorage.setItem('user', JSON.stringify(updatedUser));
           } else {
-            console.error('[E2EE] Failed to upload generated keys', await res.text());
+            console.warn('[E2EE] Failed to upload generated keys', await res.text());
           }
         } catch (e) {
-          console.error('[E2EE] Error during automatic key generation:', e);
+          console.warn('[E2EE] Error during automatic key generation:', e);
         }
       }
     };
@@ -321,7 +321,7 @@ export function useChat() {
             modals.setShowShareModal(true);
           }
         } catch (err) {
-          console.error("Failed to read shared files", err);
+          console.warn("Failed to read shared files", err);
           if (hasSharedContent) modals.setShowShareModal(true);
         }
       };
@@ -358,7 +358,7 @@ export function useChat() {
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.3);
     } catch (e) {
-      console.error('Failed to play message sound', e);
+      console.warn('Failed to play message sound', e);
     }
   }, []);
 
@@ -377,7 +377,7 @@ export function useChat() {
           console.log('Unsubscribed from push notifications on logout');
         }
       } catch (e) {
-        console.error('Failed to unsubscribe from push on logout', e);
+        console.warn('Failed to unsubscribe from push on logout', e);
       }
     }
 
@@ -389,7 +389,7 @@ export function useChat() {
           headers: { 'Authorization': `Bearer ${storedToken}` }
         });
       } catch (e) {
-        console.error('Logout API failed', e);
+        console.warn('Logout API failed', e);
       }
     }
     
@@ -417,13 +417,13 @@ export function useChat() {
           window.location.href = '/login?revoked=true';
           return;
         }
-        console.error('Failed to fetch contacts, status:', res.status);
+        console.warn('Failed to fetch contacts, status:', res.status);
         if (retryCount < 3) {
           setTimeout(() => fetchContacts(retryCount + 1), 1000 * (retryCount + 1));
         }
       }
     } catch (err) {
-      console.error('Failed to fetch contacts:', err);
+      console.warn('Failed to fetch contacts:', err);
       if (retryCount < 3) {
         setTimeout(() => fetchContacts(retryCount + 1), 1000 * (retryCount + 1));
       }
@@ -447,13 +447,13 @@ export function useChat() {
           window.location.href = '/login?revoked=true';
           return;
         }
-        console.error('Failed to fetch groups, status:', res.status);
+        console.warn('Failed to fetch groups, status:', res.status);
         if (retryCount < 3) {
           setTimeout(() => fetchGroups(retryCount + 1), 1000 * (retryCount + 1));
         }
       }
     } catch (err) {
-      console.error('Failed to fetch groups:', err);
+      console.warn('Failed to fetch groups:', err);
       if (retryCount < 3) {
         setTimeout(() => fetchGroups(retryCount + 1), 1000 * (retryCount + 1));
       }
@@ -481,7 +481,7 @@ export function useChat() {
         }
       }
     } catch (err) {
-      console.error('Failed to fetch contact circles:', err);
+      console.warn('Failed to fetch contact circles:', err);
       if (retryCount < 3) {
         setTimeout(() => fetchContactCircles(retryCount + 1), 1000 * (retryCount + 1));
       }
@@ -547,7 +547,7 @@ export function useChat() {
       }
     })
     .catch(err => {
-      console.error('Failed to fetch user:', err);
+      console.warn('Failed to fetch user:', err);
       if (err.message.includes('401') || err.message.includes('403')) {
         handleLogout();
       }
@@ -707,7 +707,7 @@ export function useChat() {
         }
       } catch (err: any) {
         if (err.name === 'AbortError') return;
-        console.error('Failed to fetch messages:', err);
+        console.warn('Failed to fetch messages:', err);
         setIsLoadingMore(false);
       }
     };
@@ -786,7 +786,7 @@ export function useChat() {
         }
       }
     } catch (err) {
-      console.error('Failed to load more messages:', err);
+      console.warn('Failed to load more messages:', err);
     } finally {
       setIsLoadingMore(false);
     }
@@ -818,7 +818,7 @@ export function useChat() {
             setSearchResults([]);
           }
         })
-        .catch(err => console.error('Search API failure', err));
+        .catch(err => console.warn('Search API failure', err));
 
         // 2. Perform local message search and background fetching
         performMessageSearch(q);
@@ -990,7 +990,7 @@ export function useChat() {
             }
             await new Promise(r => setTimeout(r, 300));
           } catch (err) {
-            console.error('In-chat background search error', err);
+            console.warn('In-chat background search error', err);
             break;
           }
         }
@@ -1041,12 +1041,12 @@ export function useChat() {
         }
       } else {
         const errorBody = await res.text();
-        console.error(`Failed to refresh contacts: ${res.status} ${errorBody}`);
+        console.warn(`Failed to refresh contacts: ${res.status} ${errorBody}`);
       }
       setSearchQuery('');
       setIsSearching(false);
     } catch (err) {
-      console.error('Failed to add contact:', err);
+      console.warn('Failed to add contact:', err);
     }
   };
 
@@ -1100,7 +1100,7 @@ export function useChat() {
         }
       }
     } catch (err) {
-      console.error('Failed to block contact:', err);
+      console.warn('Failed to block contact:', err);
     }
   };
 
@@ -1108,7 +1108,7 @@ export function useChat() {
     console.log('Generating invite...');
     const storedToken = safeLocalStorage.getItem('token');
     if (!storedToken) {
-      console.error('No token found for invite generation');
+      console.warn('No token found for invite generation');
       return;
     }
     try {
@@ -1122,7 +1122,7 @@ export function useChat() {
       try { data = text ? JSON.parse(text) : {}; } catch(e) {}
       
       if (!res.ok) {
-        console.error("INVITE ERROR RESPONSE FROM SERVER:", text);
+        console.warn("INVITE ERROR RESPONSE FROM SERVER:", text);
         
         if (data.error === 'EMAIL_NOT_VERIFIED' || res.status === 400 || res.status === 403) {
            throw new Error(t.modals.emailNotVerified || 'Please verify your email to invite users.');
@@ -1141,12 +1141,12 @@ export function useChat() {
           await navigator.clipboard.writeText(link);
           setLinkCopied(true);
         } catch (err) {
-          console.error('Failed to copy link', err);
+          console.warn('Failed to copy link', err);
           setLinkCopied(false);
         }
       }
     } catch (err: any) {
-      console.error('Failed to generate invite:', err);
+      console.warn('Failed to generate invite:', err);
       showAlert(err.message || t.common.error || 'Failed to generate invite');
     }
   }, [token, showAlert, t.common.error, modals]);
@@ -1211,7 +1211,7 @@ export function useChat() {
       try {
         data = text ? JSON.parse(text) : {};
       } catch (parseErr) {
-        console.error('Failed to parse JSON response:', text);
+        console.warn('Failed to parse JSON response:', text);
         throw parseErr;
       }
       
@@ -1230,7 +1230,7 @@ export function useChat() {
       }
       setAvatarToCrop(null);
     } catch (err: any) {
-      console.error('Failed to upload avatar', err);
+      console.warn('Failed to upload avatar', err);
       showAlert(`Ошибка при загрузке аватара: ${err.message}`);
     }
   };
@@ -1273,7 +1273,7 @@ export function useChat() {
         const privateKey = await importKey(privateKeyJwk, 'private');
         encryptedPrivateKeyData = await encryptPrivateKeyWithPassword(privateKey, data.newPassword);
       } catch (e) {
-        console.error('Failed to re-encrypt private key with new password', e);
+        console.warn('Failed to re-encrypt private key with new password', e);
         throw new Error('Failed to secure private key with new password');
       }
     }
@@ -1313,7 +1313,7 @@ export function useChat() {
             }
           }
         } catch (err) {
-          console.error('Failed to remove contact', err);
+          console.warn('Failed to remove contact', err);
         }
       }
     });
@@ -1339,7 +1339,7 @@ export function useChat() {
             }
           }
         } catch (err) {
-          console.error('Failed to leave group:', err);
+          console.warn('Failed to leave group:', err);
         }
       }
     });
@@ -1361,7 +1361,7 @@ export function useChat() {
             ));
           }
         } catch (err) {
-          console.error('Failed to clear chat:', err);
+          console.warn('Failed to clear chat:', err);
         }
       }
     });
@@ -1381,7 +1381,7 @@ export function useChat() {
         fetchContacts();
       }
     } catch (error) {
-      console.error('Error moving contact to circle type:', error);
+      console.warn('Error moving contact to circle type:', error);
     }
   };
 
@@ -1417,7 +1417,7 @@ export function useChat() {
                   encryptedKeysForNewUser[version] = encryptedKeyForNewUser;
                 }
               } catch (e) {
-                console.error(`Failed to encrypt group key version ${version} for new member`, e);
+                console.warn(`Failed to encrypt group key version ${version} for new member`, e);
               }
             }
             
@@ -1426,7 +1426,7 @@ export function useChat() {
             }
           }
         } catch (e) {
-          console.error("Failed to process group keys for new member", e);
+          console.warn("Failed to process group keys for new member", e);
         }
       }
 
@@ -1448,7 +1448,7 @@ export function useChat() {
         showAlert(data.error || 'Failed to add user to group');
       }
     } catch (err) {
-      console.error('Error adding user to group:', err);
+      console.warn('Error adding user to group:', err);
     }
   };
 

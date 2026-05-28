@@ -238,7 +238,7 @@ export function Sidebar({
         showAlert(t('modals.incorrectPassword'));
       }
     } catch (error) {
-      console.error('Error unlocking circle:', error);
+      console.warn('Error unlocking circle:', error);
       showAlert(t('modals.failedUnlock'));
     }
   };
