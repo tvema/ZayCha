@@ -27,21 +27,35 @@ import { useChatData } from './useChatData';
 import { useChatActions } from './useChatActions';
 import { useChatModals } from './useChatModals';
 import { useSocketEvents } from './useSocketEvents';
+import { useChatSearch } from './useChatSearch';
+import { useUserKeys } from './useUserKeys';
 
 import { getCachedMessages, setCachedMessages, clearCache } from '@/lib/dbCache';
 
+import { useChatStore } from '@/store/chatStore';
+
 export function useChat() {
+  useUserKeys();
+  const chatSearch = useChatSearch();
+  const { searchQuery, setSearchQuery, searchResults, setSearchResults, isSearching, setIsSearching, messageSearchResults, setMessageSearchResults, backgroundSearchRef, inChatSearchQuery, setInChatSearchQuery, isInChatSearching, setIsInChatSearching, inChatSearchRef, isSearchOpen, setIsSearchOpen, highlightedMessageId, setHighlightedMessageId, searchUsers, searchMessages } = chatSearch;
   const { showAlert, showConfirm } = useGlobalModal();
   const { t } = useLanguage();
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const user = useChatStore(s => s.user);
+  const setUser = useChatStore(s => s.setUser);
+  const token = useChatStore(s => s.token);
+  const setToken = useChatStore(s => s.setToken);
   const [socket, setSocket] = useState<Socket | null>(null);
   
-  const [contacts, setContacts] = useState<User[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [feedPosts, setFeedPosts] = useState<any[]>([]);
-  const [hasUnreadFeed, setHasUnreadFeed] = useState(false);
-  const [appView, setAppView] = useState<'messages' | 'feed'>('messages');
+  const contacts = useChatStore(s => s.contacts);
+  const setContacts = useChatStore(s => s.setContacts);
+  const groups = useChatStore(s => s.groups);
+  const setGroups = useChatStore(s => s.setGroups);
+  const feedPosts = useChatStore(s => s.feedPosts);
+  const setFeedPosts = useChatStore(s => s.setFeedPosts);
+  const hasUnreadFeed = useChatStore(s => s.hasUnreadFeed);
+  const setHasUnreadFeed = useChatStore(s => s.setHasUnreadFeed);
+  const appView = useChatStore(s => s.appView);
+  const setAppView = useChatStore(s => s.setAppView);
   const [selectedFeedUserId, setSelectedFeedUserId] = useState<string | null>(null);
 
   const fetchFeedPosts = useCallback(async () => {
@@ -91,29 +105,30 @@ export function useChat() {
       socket.off('feed:post_deleted', handleDeletePost);
     };
   }, [socket, user?.id, appView]);
-  const [contactCircles, setContactCircles] = useState<any[]>([]);
-  const [unlockedCircles, setUnlockedCircles] = useState<string[]>([]);
-  const [activeContact, setActiveContact] = useState<User | null>(null);
-  const [activeGroup, setActiveGroup] = useState<Group | null>(null);
-  const [sidebarView, setSidebarView] = useState<'chats' | 'groups'>('chats');
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [hasMoreMessages, setHasMoreMessages] = useState(true);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const contactCircles = useChatStore(s => s.contactCircles);
+  const setContactCircles = useChatStore(s => s.setContactCircles);
+  const unlockedCircles = useChatStore(s => s.unlockedCircles);
+  const setUnlockedCircles = useChatStore(s => s.setUnlockedCircles);
+  const activeContact = useChatStore(s => s.activeContact);
+  const setActiveContact = useChatStore(s => s.setActiveContact);
+  const activeGroup = useChatStore(s => s.activeGroup);
+  const setActiveGroup = useChatStore(s => s.setActiveGroup);
+  const sidebarView = useChatStore(s => s.sidebarView);
+  const setSidebarView = useChatStore(s => s.setSidebarView);
+  const messages = useChatStore(s => s.messages);
+  const setMessages = useChatStore(s => s.setMessages);
+  const hasMoreMessages = useChatStore(s => s.hasMoreMessages);
+  const setHasMoreMessages = useChatStore(s => s.setHasMoreMessages);
+  const isLoadingMore = useChatStore(s => s.isLoadingMore);
+  const setIsLoadingMore = useChatStore(s => s.setIsLoadingMore);
   
-  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<User[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [messageSearchResults, setMessageSearchResults] = useState<{ chatId: string, message: Message, isGroup: boolean }[]>([]);
-  const backgroundSearchRef = useRef<{ q: string; active: boolean }>({ q: '', active: false });
-
-  const [inChatSearchQuery, setInChatSearchQuery] = useState('');
-  const [isInChatSearching, setIsInChatSearching] = useState(false);
-  const inChatSearchRef = useRef<{ q: string; chatId: string | null; active: boolean }>({ q: '', chatId: null, active: false });
-
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const replyingTo = useChatStore(s => s.replyingTo);
+  const setReplyingTo = useChatStore(s => s.setReplyingTo);
+  const editingMessage = useChatStore(s => s.editingMessage);
+  const setEditingMessage = useChatStore(s => s.setEditingMessage);
+          
+      
+    const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
   const handleMessageResultClick = (chatId: string, message: Message, isGroup: boolean) => {
     // 1. Switch chat
