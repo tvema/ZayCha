@@ -633,7 +633,15 @@ export function useChat() {
     
     // Clear messages state is now handled by filtering in MessageList and key re-mount
     setHasMoreMessages(true);
-    setIsLoadingMore(true);
+    
+    const currentMessages = useChatStore.getState().messages;
+    const hasMessages = isGroup 
+      ? currentMessages.some(m => m.group_id === id)
+      : currentMessages.some(m => (!m.group_id || m.group_id === 'null') && (m.sender_id === id || m.receiver_id === id));
+      
+    if (!hasMessages) {
+      setIsLoadingMore(true);
+    }
     
     const controller = new AbortController();
 
@@ -649,9 +657,15 @@ export function useChat() {
           const currentId = activeContactIdRef.current || activeGroupIdRef.current;
           if (currentId === id) {
             setMessages(prev => {
-              if (prev.length === 0) return cached!;
+              const hasChatMessages = isGroup
+                ? prev.some(m => m.group_id === id)
+                : prev.some(m => (!m.group_id || m.group_id === 'null') && (m.sender_id === id || m.receiver_id === id));
+              if (!hasChatMessages) {
+                return [...prev, ...cached!];
+              }
               return prev;
             });
+            setIsLoadingMore(false); // Hide the spinner since we have cache
             const latestCachedMessage = cached[cached.length - 1];
             afterParam = `&after=${encodeURIComponent(latestCachedMessage.created_at)}`;
           }
@@ -660,7 +674,7 @@ export function useChat() {
       
       const unreadCount = isGroup ? (activeGroup?.unread_count || 0) : (activeContact?.unread_count || 0);
       const limit = Math.min(100, Math.max(30, unreadCount + 10));
-        const fetchUrl = `/api/messages/${id}?isGroup=${isGroup}&limit=${limit}`;
+        const fetchUrl = `/api/messages/${id}?isGroup=${isGroup}&limit=${limit}${afterParam}`;
         
       try {
         const res = await fetch(fetchUrl, {
