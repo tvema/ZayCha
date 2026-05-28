@@ -15,6 +15,8 @@ export type User = {
   email_verified?: boolean;
   circle_type?: 'normal' | 'dnd' | 'blacklist';
   is_blacklisted_by?: boolean;
+  status?: string;
+  encrypted_private_key?: string;
 };
 
 export type Reaction = {

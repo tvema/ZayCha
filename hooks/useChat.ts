@@ -128,7 +128,7 @@ export function useChat() {
   const setEditingMessage = useChatStore(s => s.setEditingMessage);
           
       
-    const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+
 
   const handleMessageResultClick = (chatId: string, message: Message, isGroup: boolean) => {
     // 1. Switch chat

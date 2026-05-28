@@ -13,6 +13,11 @@ class KeyRing {
    * Returns the user's RSA private key.
    * Parses the key from safeLocalStorage only once and caches it in memory.
    */
+  async setPrivateKey(key: CryptoKey): Promise<void> {
+    this.rsaPrivateKey = key;
+    this.rsaPrivateKeyPromise = Promise.resolve(key);
+  }
+
   async getPrivateKey(): Promise<CryptoKey | null> {
     if (this.rsaPrivateKey) return this.rsaPrivateKey;
     if (this.rsaPrivateKeyPromise) return this.rsaPrivateKeyPromise;
