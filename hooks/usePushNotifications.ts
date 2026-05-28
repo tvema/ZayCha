@@ -29,8 +29,16 @@ export function usePushNotifications(token: string | null) {
       const checkSubscription = async () => {
         try {
           if ('serviceWorker' in navigator && 'PushManager' in window) {
-            const registration = await navigator.serviceWorker.ready;
-            let subscription = await registration.pushManager.getSubscription();
+            let registration;
+            let subscription;
+            try {
+              await navigator.serviceWorker.register('/sw.js');
+              registration = await navigator.serviceWorker.ready;
+              subscription = await registration.pushManager.getSubscription();
+            } catch (swErr) {
+              console.warn('Service Worker access failed (likely AI Studio iframe restriction):', swErr);
+              return;
+            }
             
             if (subscription && token) {
               // Verify if the subscription key matches server's current key
@@ -104,8 +112,13 @@ export function usePushNotifications(token: string | null) {
         throw new Error('Notification permission not granted. Please check your browser settings.');
       }
 
-      const registration = await navigator.serviceWorker.register('/sw.js');
-      await navigator.serviceWorker.ready;
+      let registration;
+      try {
+        registration = await navigator.serviceWorker.register('/sw.js');
+        await navigator.serviceWorker.ready;
+      } catch (swErr) {
+        throw new Error('Service Worker is blocked in this environment (e.g. AI Studio preview iframe). Please open the app in a new tab to enable Push Notifications.');
+      }
 
       // Get VAPID public key from backend
       const res = await fetch('/api/push/vapid-public-key');
@@ -160,7 +173,13 @@ export function usePushNotifications(token: string | null) {
     }
 
     try {
-      const registration = await navigator.serviceWorker.ready;
+      let registration;
+      try {
+        registration = await navigator.serviceWorker.ready;
+      } catch (err) {
+         return; // If SW is blocked or not available, we can't unsubscribe
+      }
+      
       const subscription = await registration.pushManager.getSubscription();
       
       if (subscription) {

@@ -26,7 +26,7 @@ interface MessageInputProps {
   editingMessage?: Message | null;
   setEditingMessage?: (msg: Message | null) => void;
   handleEditMessage?: (messageId: string, content: string) => void;
-  chatFileInputRef: React.RefObject<HTMLInputElement | null>;
+  chatFileInputRef: any;
   user: User;
   activeContact: User | null;
   activeGroup: Group | null;

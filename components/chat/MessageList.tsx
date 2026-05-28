@@ -23,7 +23,7 @@ interface MessageListProps {
   activeContact: User | null;
   activeGroup: Group | null;
   socket: Socket | null;
-  messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  messagesEndRef: any;
   setReactionMessageId: (id: string | null) => void;
   setForwardingMessage: (msg: Message | null) => void;
   setShowForwardModal: (show: boolean) => void;

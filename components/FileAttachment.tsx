@@ -18,7 +18,7 @@ import dynamic from 'next/dynamic';
 const DocumentViewer = dynamic(() => import('./DocumentViewer').then(mod => mod.DocumentViewer), { ssr: false });
 
 const getExtensionVisuals = (name: string, mime: string) => {
-  const ext = (name ? name.split('.').pop() : '').toLowerCase();
+  const ext = (name ? (name.split('.').pop() || '') : '').toLowerCase();
   
   if (mime === 'application/pdf' || ext === 'pdf') {
     return {
@@ -423,7 +423,7 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
                    console.log('Invoking navigator.share for URL');
                    await navigator.share({
                      url: currentBlob,
-                     title: fileData.name || 'File from ZState',
+                     title: fileData.name || 'File from ZayChat',
                    });
                    return;
                  }

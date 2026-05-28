@@ -1,6 +1,6 @@
 {
-  "name": "ZState Chat",
-  "short_name": "ZState",
+  "name": "ZayChat",
+  "short_name": "ZayChat",
   "description": "Secure, end-to-end encrypted messenger",
   "start_url": "/",
   "id": "/",

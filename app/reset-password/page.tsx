@@ -99,7 +99,7 @@ export default function ResetPassword() {
             Ваш пароль и ключи шифрования успешно обновлены. Теперь вы можете войти в аккаунт. Старые сессии были автоматически завершены.
           </p>
           <a href="/login" className="block w-full text-center bg-indigo-600 dark:bg-indigo-500 text-white py-3 px-4 rounded-xl hover:bg-indigo-700 transition-colors font-medium relative z-10">
-            Войти в ZState
+            Войти в ZayChat
           </a>
         </motion.div>
       </div>
@@ -142,8 +142,8 @@ export default function ResetPassword() {
         className="w-full max-w-md relative z-10"
       >
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-indigo-600 dark:bg-indigo-500 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <span className="text-3xl font-bold text-white tracking-widest bg-clip-text">ZS</span>
+          <div className="w-16 h-16 bg-neutral-900 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-lg">
+            <img src="/favicon.ico" width="40" height="40" alt="ZayChat" />
           </div>
           <h1 className="text-3xl font-bold text-neutral-900 dark:text-white mb-2 tracking-tight">Новый пароль</h1>
           <p className="text-neutral-500 dark:text-neutral-400">Придумайте новый пароль для шифрования ключей</p>

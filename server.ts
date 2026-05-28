@@ -16,10 +16,10 @@ if (fs.existsSync('.env')) {
   dotenv.config({ path: '.env' });
 }
 
-import { setupRoutes } from './server/routes';
-import { setupSocket } from './server/socket';
-import { uploadDir } from './server/upload';
-import './server/db'; // Ensure DB is initialized
+import { setupRoutes } from './server/routes.js';
+import { setupSocket } from './server/socket.js';
+import { uploadDir } from './server/upload.js';
+import './server/db.js'; // Ensure DB is initialized
 
 console.log('Starting server.ts...');
 console.log('Node version:', process.version);
@@ -68,7 +68,8 @@ app.prepare().then(() => {
   console.log('Setting up Next.js catch-all route...');
   // Next.js request handling
   server.all(/.*/, (req, res) => {
-    handle(req, res);
+    const parsedUrl = parse(req.url!, true);
+    handle(req, res, parsedUrl);
   });
 
   console.log(`Starting HTTP server on port ${port}...`);

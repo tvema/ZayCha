@@ -17,8 +17,8 @@ interface CallOverlayProps {
   isPeerVideoActive: boolean;
   remoteStreamVersion: number;
   isScreenSharing: boolean;
-  localVideoRef: React.RefObject<HTMLVideoElement | null>;
-  remoteVideoRef: React.RefObject<HTMLVideoElement | null>;
+  localVideoRef: any;
+  remoteVideoRef: any;
   localStream: MediaStream | null;
   remoteStream: MediaStream | null;
   toggleScreenShare: () => void;
@@ -89,7 +89,7 @@ export function CallOverlay({
       if (localVideoRef.current.srcObject !== localStream) {
         localVideoRef.current.srcObject = localStream;
       }
-      localVideoRef.current.play().catch(err => {
+      localVideoRef.current.play().catch((err: any) => {
       });
     }
   }, [localStream, localVideoRef, isScreenSharing]);
@@ -168,7 +168,7 @@ export function CallOverlay({
       video.addEventListener('pause', handlePause);
       
       // Try to play immediately
-      video.play().catch(err => {
+      video.play().catch((err: any) => {
         if (err.name !== 'AbortError') {
           setIsRemoteVideoPlaying(false);
         }
@@ -190,7 +190,7 @@ export function CallOverlay({
       remoteVideoRef.current.load();
       remoteVideoRef.current.play().then(() => {
         setIsRemoteVideoPlaying(true);
-      }).catch(err => {
+      }).catch((err: any) => {
         if (err.name !== 'AbortError') {
           console.error('[CallOverlay] Manual play failed:', err);
         }
@@ -203,7 +203,7 @@ export function CallOverlay({
       remoteVideoRef.current.srcObject = null;
       remoteVideoRef.current.srcObject = remoteStream;
       remoteVideoRef.current.load();
-      remoteVideoRef.current.play().catch(err => {
+      remoteVideoRef.current.play().catch((err: any) => {
       });
     }
   };

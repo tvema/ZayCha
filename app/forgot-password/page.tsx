@@ -82,8 +82,8 @@ export default function ForgotPassword() {
         className="w-full max-w-md relative z-10"
       >
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-indigo-600 dark:bg-indigo-500 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <span className="text-3xl font-bold text-white tracking-widest bg-clip-text">ZS</span>
+          <div className="w-16 h-16 bg-neutral-900 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-lg">
+            <img src="/favicon.ico" width="40" height="40" alt="ZayChat" />
           </div>
           <h1 className="text-3xl font-bold text-neutral-900 dark:text-white mb-2 tracking-tight">Забыли пароль?</h1>
           <p className="text-neutral-500 dark:text-neutral-400">Введите email для сброса ключей шифрования</p>

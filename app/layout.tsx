@@ -18,13 +18,13 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ZState Chat",
+  title: "ZayChat",
   description: "Закрытый мессенджер для своих",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "ZState Chat",
+    title: "ZayChat",
   },
   formatDetection: {
     telephone: false,
@@ -42,7 +42,7 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
-// Root layout for ZState Chat
+// Root layout for ZayChat
 export default function RootLayout({
   children,
 }: Readonly<{

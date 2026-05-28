@@ -39,7 +39,7 @@ export async function sendEmail({ to, subject, html }: { to: string, subject: st
     
     // Враппер на случай если nodemailer проигнорирует таймауты
     const sendPromise = mailer.sendMail({
-      from: `"ZState Chat" <${(process.env.SMTP_USER || '').trim()}>`,
+      from: `"ZayChat" <${(process.env.SMTP_USER || '').trim()}>`,
       to,
       subject,
       html,

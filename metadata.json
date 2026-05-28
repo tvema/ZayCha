@@ -1,5 +1,5 @@
 {
-  "name": "ZState Chat",
+  "name": "ZayChat",
   "description": "Secure, end-to-end encrypted private messenger with video calls, contact circles, and PWA integration.",
   "requestFramePermissions": [
     "camera",
