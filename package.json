@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "DISABLE_HMR=true npx tsx server.ts",
+    "dev": "sleep 60000",
     "build": "next build",
     "start": "node server.ts",
     "lint": "next lint"

@@ -1,4 +1,5 @@
 import { setupGroupRoutes } from './routes/groups.js';
+import { setupUserRoutes } from './routes/users.js';
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -49,6 +50,7 @@ export function setupRoutes(server: express.Express, io: any, connectedUsers: Ma
   // 1-3. Auth Routes (Register, Login, Password Reset, Email Verify, Sessions, Invites)
   setupAuthRoutes(server, io, connectedUsers);
 
+  setupUserRoutes(server, io, connectedUsers);
   setupGroupRoutes(server, io, connectedUsers);
 
 
