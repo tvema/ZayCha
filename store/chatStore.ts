@@ -25,8 +25,8 @@ interface ChatState {
   
   setUser: (user: User | null) => void;
   setToken: (token: string | null) => void;
-  setContacts: (contacts: User[]) => void;
-  setGroups: (groups: Group[]) => void;
+  setContacts: (contacts: User[] | ((prev: User[]) => User[])) => void;
+  setGroups: (groups: Group[] | ((prev: Group[]) => Group[])) => void;
   setContactCircles: (circles: any[]) => void;
   setUnlockedCircles: (circles: string[]) => void;
   
@@ -69,8 +69,8 @@ export const useChatStore = create<ChatState>((set) => ({
   
   setUser: (user) => set({ user }),
   setToken: (token) => set({ token }),
-  setContacts: (contacts) => set({ contacts }),
-  setGroups: (groups) => set({ groups }),
+  setContacts: (updater) => set((state) => ({ contacts: typeof updater === 'function' ? updater(state.contacts) : updater })),
+  setGroups: (updater) => set((state) => ({ groups: typeof updater === 'function' ? updater(state.groups) : updater })),
   setContactCircles: (contactCircles) => set({ contactCircles }),
   setUnlockedCircles: (unlockedCircles) => set({ unlockedCircles }),
   

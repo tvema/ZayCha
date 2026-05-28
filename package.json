@@ -15,7 +15,7 @@
     "@radix-ui/react-tooltip": "^1.1.4",
     "@tailwindcss/postcss": "^4.0.0-alpha.16",
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^11.1.2",
+    "better-sqlite3": "^9.6.0",
     "clsx": "^2.1.1",
     "dotenv": "^16.4.5",
     "emoji-picker-react": "^4.11.1",
