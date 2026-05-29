@@ -705,9 +705,9 @@ export function useChat() {
               decryptedBatch.forEach(m => allMap.set(m.id, m));
               
               const merged = Array.from(allMap.values()).sort((a, b) => {
-                const timeA = new Date(a.created_at.includes('T') ? a.created_at : a.created_at.replace(' ', 'T') + 'Z').getTime();
-                const timeB = new Date(b.created_at.includes('T') ? b.created_at : b.created_at.replace(' ', 'T') + 'Z').getTime();
-                return timeA - timeB;
+                if (a.created_at < b.created_at) return -1;
+                if (a.created_at > b.created_at) return 1;
+                return 0;
               });
               
               const chatMessagesToCache = merged.filter(m => 
@@ -809,9 +809,9 @@ export function useChat() {
             prev.forEach(m => allMap.set(m.id, m));
             
             const combined = Array.from(allMap.values()).sort((a, b) => {
-              const timeA = new Date(a.created_at.includes('T') ? a.created_at : a.created_at.replace(' ', 'T') + 'Z').getTime();
-              const timeB = new Date(b.created_at.includes('T') ? b.created_at : b.created_at.replace(' ', 'T') + 'Z').getTime();
-              return timeA - timeB;
+              if (a.created_at < b.created_at) return -1;
+              if (a.created_at > b.created_at) return 1;
+              return 0;
             });
             
             if (id) {
@@ -1012,9 +1012,9 @@ export function useChat() {
                 if (newMsgs.length === 0) return prev;
                 const combined = [...newMsgs, ...prev];
                 return combined.sort((a, b) => {
-                  const timeA = new Date(a.created_at.includes('T') ? a.created_at : a.created_at.replace(' ', 'T') + 'Z').getTime();
-                  const timeB = new Date(b.created_at.includes('T') ? b.created_at : b.created_at.replace(' ', 'T') + 'Z').getTime();
-                  return timeA - timeB;
+                  if (a.created_at < b.created_at) return -1;
+                  if (a.created_at > b.created_at) return 1;
+                  return 0;
                 });
               });
 

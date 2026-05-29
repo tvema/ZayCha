@@ -5,8 +5,7 @@ import { keyRing } from '@/lib/keyRing';
 export const decryptMessageIfNeeded = async (msg: Message, currentUserId?: string, groups?: Group[]): Promise<Message> => {
   if (!msg.encryption_data) return msg;
   // If we already decrypted this message before caching it, skip decryption
-  if (msg.encrypted_content && msg.encrypted_content !== msg.content) return msg;
-  if ((msg as any).is_decrypted && msg.content !== msg.encrypted_content) return msg;
+  if ((msg as any).is_decrypted) return msg;
   
   if (!currentUserId) return msg;
 
@@ -52,6 +51,11 @@ export const decryptMessageIfNeeded = async (msg: Message, currentUserId?: strin
     } as unknown as Message;
   } catch (e) {
     console.error('Failed to decrypt message', msg.id, e);
-    return { ...msg, content: '🔒 [Encrypted Message]' };
+    return { 
+      ...msg, 
+      encrypted_content: msg.encrypted_content || msg.content,
+      content: '🔒 [Encrypted Message]',
+      is_decrypted: true
+    } as unknown as Message;
   }
 };

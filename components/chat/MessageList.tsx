@@ -87,12 +87,21 @@ export function MessageList({
   const isAtBottomRef = useRef(isAtBottom);
   const [unreadBadgeId, setUnreadBadgeId] = useState<string | null>(null);
   const [prevChatId, setPrevChatId] = useState<string | null>(null);
+  const clearBadgeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Still keep this for any external state changes if needed, but we will also 
   // update the ref synchronously in critical paths to avoid race conditions.
   useEffect(() => {
     isAtBottomRef.current = isAtBottom;
   }, [isAtBottom]);
+
+  useEffect(() => {
+    return () => {
+      if (clearBadgeTimeoutRef.current) {
+        clearTimeout(clearBadgeTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties | undefined>(undefined);
@@ -127,6 +136,10 @@ export function MessageList({
 
   // Update isFirstRenderOfChat synchronously during render to disable animations immediately
   if (chatId !== prevChatId) {
+    if (clearBadgeTimeoutRef.current) {
+      clearTimeout(clearBadgeTimeoutRef.current);
+      clearBadgeTimeoutRef.current = null;
+    }
     setPrevChatId(chatId);
     isFirstRenderOfChat.current = true;
     hasUserScrolledRef.current = false;
@@ -169,8 +182,13 @@ export function MessageList({
     }
     
     setHasNewMessages(false);
-    setUnreadBadgeId(null);
-    firstUnreadMessageIdRef.current = null;
+    if (!clearBadgeTimeoutRef.current) {
+      clearBadgeTimeoutRef.current = setTimeout(() => {
+        setUnreadBadgeId(null);
+        firstUnreadMessageIdRef.current = null;
+        clearBadgeTimeoutRef.current = null;
+      }, 3000);
+    }
   }, [chatId]);
 
   const handleScroll = useCallback(() => {
@@ -228,11 +246,50 @@ export function MessageList({
     setIsAtBottom(atBottom);
     
     if (atBottom) {
-      setHasNewMessages(false);
-      setUnreadBadgeId(null);
-      firstUnreadMessageIdRef.current = null;
+      if (!clearBadgeTimeoutRef.current) {
+        clearBadgeTimeoutRef.current = setTimeout(() => {
+          setHasNewMessages(false);
+          setUnreadBadgeId(null);
+          firstUnreadMessageIdRef.current = null;
+          clearBadgeTimeoutRef.current = null;
+        }, 3000);
+      }
+    } else {
+      if (clearBadgeTimeoutRef.current) {
+        clearTimeout(clearBadgeTimeoutRef.current);
+        clearBadgeTimeoutRef.current = null;
+      }
+      
+      const currentUnreadId = firstUnreadMessageIdRef.current;
+      if (currentUnreadId) {
+        setHasNewMessages(true);
+        const viewportBottom = scrollTop + clientHeight;
+        const containerRectTop = container.getBoundingClientRect().top;
+        
+        let newTargetId = null;
+        for (let i = filteredMessages.length - 1; i >= 0; i--) {
+          const msgId = filteredMessages[i].id;
+          const el = document.getElementById(`message-${msgId}`);
+          if (el) {
+            const relativeTop = el.getBoundingClientRect().top - containerRectTop + scrollTop;
+            if (relativeTop < viewportBottom - 20) {
+              if (i + 1 < filteredMessages.length) {
+                newTargetId = filteredMessages[i + 1].id;
+              } else {
+                newTargetId = filteredMessages[i].id;
+              }
+              break;
+            }
+          }
+        }
+        
+        if (newTargetId && newTargetId !== currentUnreadId) {
+          firstUnreadMessageIdRef.current = newTargetId;
+          setUnreadBadgeId(newTargetId);
+        }
+      }
     }
-  }, [chatId, filteredMessages.length, setIsAtBottom, hasMoreMessages, isLoadingMore, loadMoreMessages]);
+  }, [chatId, filteredMessages, setIsAtBottom, hasMoreMessages, isLoadingMore, loadMoreMessages]);
 
   const getUnreadTargetPos = useCallback(() => {
     const container = scrollContainerRef.current;
