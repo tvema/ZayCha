@@ -117,6 +117,28 @@ export function MessageList({
     };
   }, []);
 
+  const unreadClearDelayMs = Number(process.env.NEXT_PUBLIC_UNREAD_CLEAR_DELAY_MS) || 3000;
+
+  useEffect(() => {
+    if (isAtBottom && hasNewMessages) {
+      if (!clearBadgeTimeoutRef.current) {
+        clearBadgeTimeoutRef.current = setTimeout(() => {
+          setHasNewMessages(false);
+          setUnreadBadgeId(null);
+          firstUnreadMessageIdRef.current = null;
+          unreadCountOnEnterRef.current = 0; // Prevent the badge from being rendered again
+          clearBadgeTimeoutRef.current = null;
+          if (markChatAsRead) markChatAsRead();
+        }, unreadClearDelayMs);
+      }
+    } else if (!isAtBottom) {
+      if (clearBadgeTimeoutRef.current) {
+        clearTimeout(clearBadgeTimeoutRef.current);
+        clearBadgeTimeoutRef.current = null;
+      }
+    }
+  }, [isAtBottom, hasNewMessages, markChatAsRead, unreadClearDelayMs]);
+
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties | undefined>(undefined);
   const [showFullEmojiPicker, setShowFullEmojiPicker] = useState(false);
@@ -200,17 +222,7 @@ export function MessageList({
         behavior: 'smooth'
       });
     }
-    
-    setHasNewMessages(false);
-    if (!clearBadgeTimeoutRef.current) {
-      clearBadgeTimeoutRef.current = setTimeout(() => {
-        setUnreadBadgeId(null);
-        firstUnreadMessageIdRef.current = null;
-        clearBadgeTimeoutRef.current = null;
-        if (markChatAsRead) markChatAsRead();
-      }, 3000);
-    }
-  }, [chatId, markChatAsRead]);
+  }, [chatId]);
 
   const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current;
@@ -266,22 +278,7 @@ export function MessageList({
     isAtBottomRef.current = atBottom;
     setIsAtBottom(atBottom);
     
-    if (atBottom) {
-      if (!clearBadgeTimeoutRef.current) {
-        clearBadgeTimeoutRef.current = setTimeout(() => {
-          setHasNewMessages(false);
-          setUnreadBadgeId(null);
-          firstUnreadMessageIdRef.current = null;
-          clearBadgeTimeoutRef.current = null;
-          if (markChatAsRead) markChatAsRead();
-        }, 3000);
-      }
-    } else {
-      if (clearBadgeTimeoutRef.current) {
-        clearTimeout(clearBadgeTimeoutRef.current);
-        clearBadgeTimeoutRef.current = null;
-      }
-      
+    if (!atBottom) {
       const currentUnreadId = firstUnreadMessageIdRef.current;
       if (currentUnreadId && !isProgrammaticScrollRef.current) {
         setHasNewMessages(true);
@@ -317,7 +314,7 @@ export function MessageList({
         }
       }
     }
-  }, [chatId, filteredMessages, setIsAtBottom, hasMoreMessages, isLoadingMore, loadMoreMessages, markChatAsRead]);
+  }, [chatId, filteredMessages, setIsAtBottom, hasMoreMessages, isLoadingMore, loadMoreMessages]);
 
   const getUnreadTargetPos = useCallback(() => {
     const container = scrollContainerRef.current;
