@@ -48,21 +48,14 @@ export async function setCachedMessages(chatId: string, messages: Message[]) {
     const db = await getDb();
     if (!db) return;
     
-    // Cache the encrypted versions so plaintext is not kept in IndexedDB
-    const encryptedMessagesToCache = messages.map(msg => {
-      if (msg.encrypted_content) {
-        const { is_decrypted, ...rest } = msg as any;
-        return {
-          ...rest,
-          content: msg.encrypted_content
-        } as Message;
-      }
-      return msg;
-    });
-
+    // IMPORTANT: We cache messages AS IS (including plain text and is_decrypted: true)
+    // Decrypting messages takes a lot of time on each load. For performance reasons, 
+    // we keep the decrypted messages in IndexedDB cache so the feed loads instantly.
+    // If you ever need to change this back to encrypting cache, remember that it causes
+    // a delay of a few seconds every time.
     await db.put('chat_cache', {
       chatId,
-      messages: encryptedMessagesToCache,
+      messages,
       updatedAt: Date.now()
     });
   } catch (error) {
