@@ -566,14 +566,22 @@ export function MessageList({
 
           return (
             <React.Fragment key={msg.id}>
-              {isFirstUnread && (
-                <div id="unread-badge-element" className="w-full flex items-center justify-center my-4 relative">
-                  <div className="absolute w-full h-px bg-indigo-500/30"></div>
-                  <span className="relative bg-white dark:bg-neutral-900 px-4 py-1 rounded-full text-xs font-medium text-indigo-500 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/40 shadow-sm">
-                    {t('modals.newMessages') || 'Новые сообщения'}
-                  </span>
-                </div>
-              )}
+              <AnimatePresence>
+                {isFirstUnread && (
+                  <motion.div 
+                    id="unread-badge-element" 
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, transition: { duration: 0.3 } }}
+                    className="w-full flex items-center justify-center my-4 relative"
+                  >
+                    <div className="absolute w-full h-px bg-indigo-500/30"></div>
+                    <span className="relative bg-white dark:bg-neutral-900 px-4 py-1 rounded-full text-xs font-medium text-indigo-500 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/40 shadow-sm">
+                      {t('modals.newMessages') || 'Новые сообщения'}
+                    </span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               <MessageItem
                 msg={msg}
               index={index}
@@ -626,12 +634,20 @@ export function MessageList({
           const info = getUnreadTargetPos();
           if (info && hasNewMessages) {
             if (info.doesNotFit) {
-              const isAlreadyAtTarget = Math.abs(container.scrollTop - info.targetScroll) < 15;
+              const targetTop = info.targetScroll;
+              const currentTop = container.scrollTop;
+              const isAlreadyAtTarget = Math.abs(currentTop - targetTop) < 20 || currentTop >= targetTop;
+              
               if (isAlreadyAtTarget) {
-                scrollToBottom('smooth');
+                // Page down
+                const pageDownTarget = currentTop + container.clientHeight * 0.8;
+                container.scrollTo({
+                  top: Math.min(pageDownTarget, container.scrollHeight - container.clientHeight),
+                  behavior: 'smooth'
+                });
               } else {
                 container.scrollTo({
-                  top: info.targetScroll,
+                  top: targetTop,
                   behavior: 'smooth'
                 });
               }
