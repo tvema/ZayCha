@@ -87,16 +87,6 @@ export function useSocketEvents({
                 return timeA - timeB;
               });
             });
-            
-            if (document.visibilityState === 'visible') {
-              if (currentCId) {
-                socket.emit('contact:read', { contactId: currentCId });
-                setContacts(prev => prev.map(c => c.id === currentCId ? { ...c, unread_count: 0 } : c));
-              } else if (currentGId) {
-                socket.emit('group:read', { groupId: currentGId });
-                setGroups(prev => prev.map(g => g.id === currentGId ? { ...g, unread_count: 0 } : g));
-              }
-            }
           }
         })
         .catch(console.error);
@@ -209,7 +199,11 @@ export function useSocketEvents({
             c.id === targetId ? { 
               ...c, 
               last_message_timestamp: decryptedMsg.created_at,
-              unread_count: (!isCurrentDirectChat && decryptedMsg.sender_id !== currentUser?.id) ? (c.unread_count || 0) + 1 : c.unread_count
+              // [UNREAD MECHANICS]: We conditionally increment unread_count here for ALL messages.
+              // EVEN if it is the current active chat. The count displays immediately in the sidebar,
+              // and gets naturally cleared via `markChatAsRead` logic located in `MessageList.tsx`
+              // when the user visually confirms hitting the bottom of the chat view.
+              unread_count: (decryptedMsg.sender_id !== currentUser?.id) ? (c.unread_count || 0) + 1 : c.unread_count
             } : c
           );
         });
@@ -221,7 +215,9 @@ export function useSocketEvents({
           g.id === decryptedMsg.group_id ? { 
             ...g, 
             last_message_timestamp: decryptedMsg.created_at,
-            unread_count: (!isCurrentGroupChat && decryptedMsg.sender_id !== currentUser?.id) ? (g.unread_count || 0) + 1 : g.unread_count
+            // [UNREAD MECHANICS]: See logic above. We intentionally increment this even for active group chats,
+            // relying on `MessageList` to clear them when physically scrolled to the bottom.
+            unread_count: (decryptedMsg.sender_id !== currentUser?.id) ? (g.unread_count || 0) + 1 : g.unread_count
           } : g
         ));
       }

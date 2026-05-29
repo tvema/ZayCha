@@ -317,7 +317,7 @@ export function MessageList({
         }
       }
     }
-  }, [chatId, filteredMessages, setIsAtBottom, hasMoreMessages, isLoadingMore, loadMoreMessages]);
+  }, [chatId, filteredMessages, setIsAtBottom, hasMoreMessages, isLoadingMore, loadMoreMessages, markChatAsRead]);
 
   const getUnreadTargetPos = useCallback(() => {
     const container = scrollContainerRef.current;
@@ -567,7 +567,7 @@ export function MessageList({
     }
     prevMessagesLength.current = filteredMessages.length;
     prevMessagesRef.current = filteredMessages;
-  }, [chatId, filteredMessages, isAtBottom, scrollToBottom, user.id, isLoadingMore, hasMoreMessages, loadMoreMessages]);
+  }, [chatId, filteredMessages, isAtBottom, scrollToBottom, user.id, isLoadingMore, hasMoreMessages, loadMoreMessages, markChatAsRead]);
 
   // Handle content height changes (like image loads)
   useEffect(() => {
