@@ -28,6 +28,8 @@ import { useChatActions } from './useChatActions';
 import { useChatModals } from './useChatModals';
 import { useSocketEvents } from './useSocketEvents';
 import { useChatSearch } from './useChatSearch';
+import { useChatProfile } from './useChatProfile';
+import { useChatContacts } from './useChatContacts';
 import { useUserKeys } from './useUserKeys';
 
 import { getCachedMessages, setCachedMessages, clearCache } from '@/lib/dbCache';
@@ -160,7 +162,6 @@ export function useChat() {
   
   const [reactionMessageId, setReactionMessageId] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [avatarToCrop, setAvatarToCrop] = useState<string | null>(null);
   const avatarTargetRef = useRef<{ type: 'user' | 'group', id?: string }>({ type: 'user' });
   const [typingUsers, setTypingUsers] = useState<Record<string, { userId: string, username: string }[]>>({});
 
@@ -229,7 +230,6 @@ export function useChat() {
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const avatarInputRef = useRef<HTMLInputElement>(null);
   const chatFileInputRef = useRef<HTMLInputElement>(null);
 
   const activeContactIdRef = useRef<string | null>(null);
@@ -379,6 +379,9 @@ export function useChat() {
 
   const { handleEditMessage, handleDeleteMessage, handleSendMessage, handleForward } = useChatActions(token, activeContact, activeGroup, messages, socket, user, groups, contacts, setMessages, playMessageSound, chatFileInputRef, replyingTo, setReplyingTo, setShowEmojiPicker, modals.forwardingMessage, modals.setShowForwardModal, modals.setForwardingMessage);
 
+  const chatProfile = useChatProfile(user, setUser, token, activeGroup, setActiveGroup, setGroups);
+  const { avatarToCrop, setAvatarToCrop, avatarInputRef, handleAvatarClick, handleAvatarChange, handleCropComplete, handleUpdateProfile, handleChangePassword } = chatProfile;
+
   const handleLogout = useCallback(async () => {
     console.log('Logging out...');
     
@@ -503,9 +506,8 @@ export function useChat() {
     }
   }, []);
 
-
-
-
+  const chatContacts = useChatContacts(token, contacts, groups, activeContact, activeGroup, contactCircles, setContacts, setGroups, setActiveContact, setActiveGroup, setMessages, setSearchQuery, setIsSearching, fetchContacts, fetchGroups, fetchContactCircles, socket, modals);
+  const { handleRemoveContact, handleLeaveGroup, handleClearChat, handleMoveContactToCircle, handleAddUserToGroup, handleAddContact, handleBlockContact } = chatContacts;
 
   useEffect(() => {
     const storedToken = safeLocalStorage.getItem('token');
@@ -1051,96 +1053,8 @@ export function useChat() {
     }
   };
 
-  const handleAddContact = async (contactId: string) => {
-    try {
-      await fetch('/api/contacts', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
-        },
-        body: JSON.stringify({ contactId })
-      });
-      
-      const res = await fetch('/api/contacts', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const text = await res.text();
-        const updatedContacts = text ? JSON.parse(text) : [];
-        setContacts(updatedContacts);
-        
-        const activatedContact = updatedContacts.find((c: any) => c.id === contactId);
-        if (activatedContact) {
-          setActiveContact(activatedContact);
-          setActiveGroup(null);
-          window.history.pushState({ chatOpen: true }, '', '#chat');
-        }
-      } else {
-        const errorBody = await res.text();
-        console.warn(`Failed to refresh contacts: ${res.status} ${errorBody}`);
-      }
-      setSearchQuery('');
-      setIsSearching(false);
-    } catch (err) {
-      console.warn('Failed to add contact:', err);
-    }
-  };
-
-  const handleBlockContact = async (contactId: string) => {
-    try {
-      // Find or create blacklist circle
-      let blacklistCircle = contactCircles.find(c => c.is_blacklist === 1);
-      
-      if (!blacklistCircle) {
-        const res = await fetch('/api/contact-circles', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            name: 'Blacklist',
-            do_not_disturb: true,
-            is_hidden: false,
-            is_blacklist: true
-          })
-        });
-        if (res.ok) {
-          blacklistCircle = await res.json();
-          fetchContactCircles();
-        }
-      }
-
-      if (blacklistCircle) {
-        await fetch(`/api/contact-circles/${blacklistCircle.id}/members`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ contactId })
-        });
-        fetchContactCircles();
-        
-        // Remove from contacts if present
-        await fetch(`/api/contacts/${contactId}`, {
-          method: 'DELETE',
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        fetchContacts();
-        
-        // Close chat if active
-        if (activeContact?.id === contactId) {
-          setActiveContact(null);
-          window.history.pushState({ chatOpen: false }, '', '#');
-        }
-      }
-    } catch (err) {
-      console.warn('Failed to block contact:', err);
-    }
-  };
-
+  // Removed handleAddContact, handleBlockContact, handleRemoveContact, handleLeaveGroup, handleClearChat, handleMoveContactToCircle, handleAddUserToGroup
+  
   const handleGenerateInvite = useCallback(async () => {
     console.log('Generating invite...');
     const storedToken = safeLocalStorage.getItem('token');
@@ -1184,93 +1098,9 @@ export function useChat() {
       }
     } catch (err: any) {
       console.warn('Failed to generate invite:', err);
-      showAlert(err.message || t.common.error || 'Failed to generate invite');
+      showAlert(err.message || t?.common?.error || 'Failed to generate invite');
     }
-  }, [token, showAlert, t.common.error, modals]);
-
-  const handleAvatarClick = (typeOrEvent: any = 'user', id?: string) => {
-    // If it's a React event or any non-string, default to 'user'
-    // This happens when called as an onClick handler in the Sidebar
-    const isEvent = typeOrEvent && (typeof typeOrEvent === 'object' && ('nativeEvent' in typeOrEvent || 'target' in typeOrEvent));
-    const resolvedType = (typeof typeOrEvent === 'string' && !isEvent) ? typeOrEvent : 'user';
-    const resolvedId = (typeof typeOrEvent === 'string' && !isEvent) ? id : undefined;
-
-    avatarTargetRef.current = { type: resolvedType as 'user' | 'group', id: resolvedId };
-    avatarInputRef.current?.click();
-  };
-
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onload = () => {
-        setAvatarToCrop(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-      if (avatarInputRef.current) {
-        avatarInputRef.current.value = '';
-      }
-    }
-  };
-
-  const handleCropComplete = async (croppedBlob: Blob) => {
-    try {
-      const target = avatarTargetRef.current;
-      const endpoint = target.type === 'group' && target.id 
-        ? `/api/groups/${target.id}/avatar` 
-        : `/api/users/avatar`;
-      
-      const formData = new FormData();
-      formData.append('avatar', croppedBlob, 'avatar.jpg');
-        
-      const res = await fetch(endpoint, {
-        method: target.type === 'group' ? 'PUT' : 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
-      });
-      
-      if (!res.ok) {
-        let errMsg = `Upload failed: ${res.status}`;
-        try {
-          const errText = await res.text();
-          errMsg += ` - ${errText}`;
-        } catch (e) {}
-        throw new Error(errMsg);
-      }
-      
-      const contentType = res.headers.get('content-type');
-      if (contentType && contentType.includes('text/html')) {
-        throw new Error('Server returned HTML instead of JSON. The server might be restarting. Please try again.');
-      }
-      
-      const text = await res.text();
-      let data: any = {};
-      try {
-        data = text ? JSON.parse(text) : {};
-      } catch (parseErr) {
-        console.warn('Failed to parse JSON response:', text);
-        throw parseErr;
-      }
-      
-      if (data.avatarUrl) {
-        if (target.type === 'group' && target.id) {
-          setGroups(prev => prev.map(g => g.id === target.id ? { ...g, avatar_url: data.avatarUrl } : g));
-          if (activeGroup?.id === target.id) {
-            setActiveGroup(prev => prev ? { ...prev, avatar_url: data.avatarUrl } : null);
-          }
-        } else {
-          const updatedUser = { ...user!, avatar_url: data.avatarUrl };
-          setUser(updatedUser);
-          safeLocalStorage.setItem('user', JSON.stringify(updatedUser));
-        }
-        showAlert(t.common.success);
-      }
-      setAvatarToCrop(null);
-    } catch (err: any) {
-      console.warn('Failed to upload avatar', err);
-      showAlert(`Ошибка при загрузке аватара: ${err.message}`);
-    }
-  };
+  }, [token, showAlert, t, modals]);
 
   const handleReaction = (emojiData: any, overrideId?: string) => {
     const targetId = overrideId || reactionMessageId;
@@ -1282,211 +1112,6 @@ export function useChat() {
     });
     
     setReactionMessageId(null);
-  };
-
-  const handleUpdateProfile = async (data: { firstName: string; lastName: string; email: string; phone: string }) => {
-    const res = await fetch('/api/users/profile', {
-      method: 'PUT',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      let error: any = {};
-      try { error = text ? JSON.parse(text) : {}; } catch (e) {}
-      throw new Error(error.error || 'Failed to update profile');
-    }
-    const updatedUser = { ...user!, first_name: data.firstName, last_name: data.lastName, email: data.email, phone: data.phone };
-    setUser(updatedUser);
-    safeLocalStorage.setItem('user', JSON.stringify(updatedUser));
-  };
-
-  const handleChangePassword = async (data: { oldPassword: string; newPassword: string }) => {
-    let encryptedPrivateKeyData = null;
-    const privateKeyJwk = safeLocalStorage.getItem('e2e_private_key');
-    
-    if (privateKeyJwk) {
-      try {
-        const privateKey = await importKey(privateKeyJwk, 'private');
-        encryptedPrivateKeyData = await encryptPrivateKeyWithPassword(privateKey, data.newPassword);
-      } catch (e) {
-        console.warn('Failed to re-encrypt private key with new password', e);
-        throw new Error('Failed to secure private key with new password');
-      }
-    }
-
-    const payload = {
-      ...data,
-      encryptedPrivateKey: encryptedPrivateKeyData ? JSON.stringify(encryptedPrivateKeyData) : undefined
-    };
-
-    const res = await fetch('/api/users/password', {
-      method: 'PUT',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      let error: any = {};
-      try { error = text ? JSON.parse(text) : {}; } catch (e) {}
-      throw new Error(error.error || 'Failed to change password');
-    }
-  };
-
-  const handleRemoveContact = useCallback(async (contactId: string) => {
-    showConfirm({
-      message: t('common.removeContactConfirm') || 'Are you sure you want to remove this contact?',
-      onConfirm: async () => {
-        try {
-          const res = await fetch(`/api/contacts/${contactId}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (res.ok) {
-            fetchContacts();
-            fetchContactCircles();
-            if (activeContact?.id === contactId) {
-              setActiveContact(null);
-            }
-          }
-        } catch (err) {
-          console.warn('Failed to remove contact', err);
-        }
-      }
-    });
-  }, [token, fetchContacts, fetchContactCircles, activeContact, showConfirm, t]);
-
-  const handleLeaveGroup = useCallback(async (groupId: string) => {
-    showConfirm({
-      message: 'Вы уверены, что хотите покинуть группу?',
-      onConfirm: async () => {
-        try {
-          const res = await fetch(`/api/groups/${groupId}/leave`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (res.ok) {
-            fetchGroups();
-            if (activeGroup?.id === groupId) {
-              setActiveGroup(null);
-            }
-            if (socket) {
-              socket.emit('leaveRoom', `group_${groupId}`);
-              socket.emit('roomEvent', { roomId: `group_${groupId}`, type: 'memberLeft' });
-            }
-          }
-        } catch (err) {
-          console.warn('Failed to leave group:', err);
-        }
-      }
-    });
-  }, [token, fetchGroups, activeGroup, socket, showConfirm]);
-
-  const handleClearChat = useCallback(async (contactId: string, isGroup: boolean = false) => {
-    showConfirm({
-      message: t('common.clearChatConfirm') || 'Are you sure you want to clear this chat?',
-      onConfirm: async () => {
-        try {
-          const res = await fetch(`/api/messages/${contactId}/clear?isGroup=${isGroup}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (res.ok) {
-            setMessages(prev => prev.filter(msg => 
-              isGroup ? msg.group_id !== contactId : 
-              (msg.sender_id !== contactId && msg.receiver_id !== contactId)
-            ));
-          }
-        } catch (err) {
-          console.warn('Failed to clear chat:', err);
-        }
-      }
-    });
-  }, [token, showConfirm]);
-
-  const handleMoveContactToCircle = async (contactId: string, toCircleType: 'normal' | 'dnd' | 'blacklist') => {
-    try {
-      const res = await fetch(`/api/contacts/${contactId}/circle`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ circle_type: toCircleType })
-      });
-      if (res.ok) {
-        fetchContacts();
-      }
-    } catch (error) {
-      console.warn('Error moving contact to circle type:', error);
-    }
-  };
-
-  const handleAddUserToGroup = async (userId: string, groupId: string, targetUser?: User) => {
-    try {
-      const group = groups.find(g => g.id === groupId);
-      if (group && group.encrypted_keys && targetUser && !targetUser.public_key) {
-        alert('Cannot add user: they need to log in to generate encryption keys first.');
-        return;
-      }
-
-      let encryptedKeysForNewUser: Record<string, string> | null = null;
-      
-      if (group && group.encrypted_keys && targetUser?.public_key) {
-        try {
-          let keysObj: Record<string, string>;
-          try {
-            keysObj = JSON.parse(group.encrypted_keys);
-          } catch (e) {
-            keysObj = { "1": group.encrypted_keys };
-          }
-          const privateKeyJwk = safeLocalStorage.getItem('e2e_private_key');
-          
-          if (privateKeyJwk) {
-            const targetPublicKey = await importKey(targetUser.public_key, 'public');
-            encryptedKeysForNewUser = {};
-            
-            for (const [version, encryptedGroupKey] of Object.entries(keysObj)) {
-              try {
-                const groupAesKey = await keyRing.getAesKey(encryptedGroupKey as string);
-                if (groupAesKey) {
-                  const encryptedKeyForNewUser = await encryptAESKeyWithRSA(groupAesKey, targetPublicKey);
-                  encryptedKeysForNewUser[version] = encryptedKeyForNewUser;
-                }
-              } catch (e) {
-                console.warn(`Failed to encrypt group key version ${version} for new member`, e);
-              }
-            }
-            
-            if (Object.keys(encryptedKeysForNewUser).length === 0) {
-              encryptedKeysForNewUser = null;
-            }
-          }
-        } catch (e) {
-          console.warn("Failed to process group keys for new member", e);
-        }
-      }
-
-      const response = await fetch(`/api/groups/${groupId}/members`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ 
-          userId,
-          encrypted_keys: encryptedKeysForNewUser
-        })
-      });
-      if (response.ok) {
-        modals.setShowAddToGroupModal(false);
-      } else {
-        const data = await response.json();
-        showAlert(data.error || 'Failed to add user to group');
-      }
-    } catch (err) {
-      console.warn('Error adding user to group:', err);
-    }
   };
 
   const handleContactClick = (contact: User) => {
