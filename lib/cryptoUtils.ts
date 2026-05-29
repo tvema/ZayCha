@@ -5,7 +5,8 @@ import { keyRing } from '@/lib/keyRing';
 export const decryptMessageIfNeeded = async (msg: Message, currentUserId?: string, groups?: Group[]): Promise<Message> => {
   if (!msg.encryption_data) return msg;
   // If we already decrypted this message before caching it, skip decryption
-  if ((msg as any).is_decrypted || (msg.encrypted_content && msg.encrypted_content !== msg.content)) return msg;
+  if (msg.encrypted_content && msg.encrypted_content !== msg.content) return msg;
+  if ((msg as any).is_decrypted && msg.content !== msg.encrypted_content) return msg;
   
   if (!currentUserId) return msg;
 

@@ -51,10 +51,11 @@ export async function setCachedMessages(chatId: string, messages: Message[]) {
     // Cache the encrypted versions so plaintext is not kept in IndexedDB
     const encryptedMessagesToCache = messages.map(msg => {
       if (msg.encrypted_content) {
+        const { is_decrypted, ...rest } = msg as any;
         return {
-          ...msg,
+          ...rest,
           content: msg.encrypted_content
-        };
+        } as Message;
       }
       return msg;
     });
