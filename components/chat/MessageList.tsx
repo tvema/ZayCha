@@ -88,6 +88,8 @@ export function MessageList({
   const [unreadBadgeId, setUnreadBadgeId] = useState<string | null>(null);
   const [prevChatId, setPrevChatId] = useState<string | null>(null);
   const clearBadgeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isProgrammaticScrollRef = useRef(false);
+  const programmaticScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Still keep this for any external state changes if needed, but we will also 
   // update the ref synchronously in critical paths to avoid race conditions.
@@ -161,6 +163,12 @@ export function MessageList({
     const container = scrollContainerRef.current;
     if (!container) return;
     
+    isProgrammaticScrollRef.current = true;
+    if (programmaticScrollTimeoutRef.current) clearTimeout(programmaticScrollTimeoutRef.current);
+    programmaticScrollTimeoutRef.current = setTimeout(() => {
+      isProgrammaticScrollRef.current = false;
+    }, 1000);
+
     const targetTop = container.scrollHeight - container.clientHeight;
     
     if (behavior === 'auto') {
@@ -261,7 +269,7 @@ export function MessageList({
       }
       
       const currentUnreadId = firstUnreadMessageIdRef.current;
-      if (currentUnreadId) {
+      if (currentUnreadId && !isProgrammaticScrollRef.current) {
         setHasNewMessages(true);
         const viewportBottom = scrollTop + clientHeight;
         const containerRectTop = container.getBoundingClientRect().top;
@@ -301,12 +309,11 @@ export function MessageList({
     const container = scrollContainerRef.current;
     if (!container) return null;
 
-    const badgeEl = document.getElementById('unread-badge-element');
     const msgEl = firstUnreadMessageIdRef.current 
       ? document.getElementById(`message-${firstUnreadMessageIdRef.current}`) 
       : null;
 
-    const targetEl = badgeEl || msgEl;
+    const targetEl = msgEl;
     if (!targetEl) return null;
 
     const relativeTop = targetEl.getBoundingClientRect().top - container.getBoundingClientRect().top;
@@ -315,7 +322,7 @@ export function MessageList({
     const doesNotFit = remainingHeight > container.clientHeight;
 
     const maxScroll = container.scrollHeight - container.clientHeight;
-    const offsetPadding = targetEl === badgeEl ? 16 : 60;
+    const offsetPadding = 60;
     const targetScroll = Math.min(maxScroll, Math.max(0, absoluteTop - offsetPadding));
 
     return {
@@ -693,6 +700,51 @@ export function MessageList({
           e.stopPropagation();
           const container = scrollContainerRef.current;
           if (!container) return;
+
+          // If there is an existing target, and we are clicking...
+          // We should first update the unread badge to whatever is at the bottom of the CURRENT view
+          // Because user has read the screen they are on!
+          if (hasNewMessages) {
+            const viewportBottom = container.scrollTop + container.clientHeight;
+            const containerRectTop = container.getBoundingClientRect().top;
+            const currentUnreadId = firstUnreadMessageIdRef.current;
+            
+            let newTargetId = null;
+            let newTargetIndex = -1;
+            for (let i = filteredMessages.length - 1; i >= 0; i--) {
+              const msgId = filteredMessages[i].id;
+              const el = document.getElementById(`message-${msgId}`);
+              if (el) {
+                const relativeTop = el.getBoundingClientRect().top - containerRectTop + container.scrollTop;
+                if (relativeTop < viewportBottom - 20) {
+                  if (i + 1 < filteredMessages.length) {
+                    newTargetId = filteredMessages[i + 1].id;
+                    newTargetIndex = i + 1;
+                  } else {
+                    newTargetId = filteredMessages[i].id;
+                    newTargetIndex = i;
+                  }
+                  break;
+                }
+              }
+            }
+            
+            if (currentUnreadId && newTargetId && newTargetId !== currentUnreadId) {
+              const currentIndex = filteredMessages.findIndex(m => m.id === currentUnreadId);
+              if (currentIndex !== -1 && newTargetIndex > currentIndex) {
+                // Update badge immediately before doing positional math
+                firstUnreadMessageIdRef.current = newTargetId;
+                setUnreadBadgeId(newTargetId);
+              }
+            }
+          }
+
+          // Force flag to avoid handleScroll overriding badge during the smooth scroll
+          isProgrammaticScrollRef.current = true;
+          if (programmaticScrollTimeoutRef.current) clearTimeout(programmaticScrollTimeoutRef.current);
+          programmaticScrollTimeoutRef.current = setTimeout(() => {
+            isProgrammaticScrollRef.current = false;
+          }, 1000);
 
           const info = getUnreadTargetPos();
           if (info && hasNewMessages) {
