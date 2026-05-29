@@ -267,6 +267,7 @@ export function MessageList({
         const containerRectTop = container.getBoundingClientRect().top;
         
         let newTargetId = null;
+        let newTargetIndex = -1;
         for (let i = filteredMessages.length - 1; i >= 0; i--) {
           const msgId = filteredMessages[i].id;
           const el = document.getElementById(`message-${msgId}`);
@@ -275,8 +276,10 @@ export function MessageList({
             if (relativeTop < viewportBottom - 20) {
               if (i + 1 < filteredMessages.length) {
                 newTargetId = filteredMessages[i + 1].id;
+                newTargetIndex = i + 1;
               } else {
                 newTargetId = filteredMessages[i].id;
+                newTargetIndex = i;
               }
               break;
             }
@@ -284,8 +287,11 @@ export function MessageList({
         }
         
         if (newTargetId && newTargetId !== currentUnreadId) {
-          firstUnreadMessageIdRef.current = newTargetId;
-          setUnreadBadgeId(newTargetId);
+          const currentIndex = filteredMessages.findIndex(m => m.id === currentUnreadId);
+          if (currentIndex !== -1 && newTargetIndex > currentIndex) {
+            firstUnreadMessageIdRef.current = newTargetId;
+            setUnreadBadgeId(newTargetId);
+          }
         }
       }
     }

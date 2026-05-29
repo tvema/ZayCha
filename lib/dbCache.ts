@@ -17,11 +17,11 @@ let dbPromise: Promise<IDBPDatabase<ChatDBSchema>> | null = null;
 function getDb() {
   if (typeof window === 'undefined') return null;
   if (!dbPromise) {
-    dbPromise = openDB<ChatDBSchema>('zstate-chat-db', 3, {
+    dbPromise = openDB<ChatDBSchema>('zstate-chat-db', 4, {
       upgrade(db, oldVersion, newVersion, transaction) {
         if (!db.objectStoreNames.contains('chat_cache')) {
           db.createObjectStore('chat_cache', { keyPath: 'chatId' });
-        } else if (oldVersion < 3) {
+        } else if (oldVersion < 4) {
           db.deleteObjectStore('chat_cache');
           db.createObjectStore('chat_cache', { keyPath: 'chatId' });
         }
