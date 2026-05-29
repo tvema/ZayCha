@@ -707,7 +707,12 @@ export function useChat() {
                 const timeB = new Date(b.created_at.includes('T') ? b.created_at : b.created_at.replace(' ', 'T') + 'Z').getTime();
                 return timeA - timeB;
               });
-              setCachedMessages(id, merged);
+              
+              const chatMessagesToCache = merged.filter(m => 
+                isGroup ? m.group_id === id : (!m.group_id || String(m.group_id) === 'null') && (m.sender_id === id || m.receiver_id === id)
+              );
+              setCachedMessages(id, chatMessagesToCache);
+              
               return merged;
             });
           } else if (cached && cached.length > 0 && id) {
@@ -808,7 +813,10 @@ export function useChat() {
             });
             
             if (id) {
-              setCachedMessages(id, combined);
+              const chatMessagesToCache = combined.filter(m => 
+                isGroup ? m.group_id === id : (!m.group_id || String(m.group_id) === 'null') && (m.sender_id === id || m.receiver_id === id)
+              );
+              setCachedMessages(id, chatMessagesToCache);
             }
             return combined;
           });
