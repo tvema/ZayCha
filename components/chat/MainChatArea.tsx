@@ -77,6 +77,7 @@ interface MainChatAreaProps {
   highlightedMessageId: string | null;
   setHighlightedMessageId: (id: string | null) => void;
   token: string | null;
+  markChatAsRead: () => void;
 }
 
 export function MainChatArea({
@@ -138,7 +139,8 @@ export function MainChatArea({
   setIsSearchOpen,
   highlightedMessageId,
   setHighlightedMessageId,
-  token
+  token,
+  markChatAsRead
 }: MainChatAreaProps) {
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -405,6 +407,7 @@ export function MainChatArea({
                 setHighlightedMessageId(msg.id);
               }
             }}
+            markChatAsRead={markChatAsRead}
           />
 
           {activeContact && activeContact.is_blacklisted_by ? (

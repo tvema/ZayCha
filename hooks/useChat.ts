@@ -722,22 +722,6 @@ export function useChat() {
           }
           
           setIsLoadingMore(false);
-          
-          if (!isGroup && activeContact) {
-            if (socket) {
-              socket.emit('contact:read', { contactId: activeContact.id });
-            }
-            setContacts(prev => prev.map(c => 
-              c.id === activeContact.id ? { ...c, unread_count: 0 } : c
-            ));
-          } else if (isGroup && activeGroup) {
-            if (socket) {
-               socket.emit('group:read', { groupId: activeGroup.id });
-            }
-            setGroups(prev => prev.map(g => 
-              g.id === activeGroup.id ? { ...g, unread_count: 0 } : g
-            ));
-          }
         } else {
            setIsLoadingMore(false);
         }
@@ -754,33 +738,6 @@ export function useChat() {
       controller.abort();
     };
   }, [activeContact?.id, activeGroup?.id, token, socket]);
-
-  // Mark messages as read when returning to the tab
-  useEffect(() => {
-    if (!socket || (!activeContact && !activeGroup)) return;
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        if (activeContact) {
-          socket.emit('contact:read', { contactId: activeContact.id });
-          setContacts(prev => prev.map(c => 
-            c.id === activeContact.id ? { ...c, unread_count: 0 } : c
-          ));
-        } else if (activeGroup) {
-          // If we have an active group, we check if it has unread count
-          socket.emit('group:read', { groupId: activeGroup.id });
-          setGroups(prev => prev.map(g => 
-            g.id === activeGroup.id ? { ...g, unread_count: 0 } : g
-          ));
-        }
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [activeContact, activeGroup, messages, socket, setContacts, setGroups]);
 
   const loadMoreMessages = useCallback(async () => {
     if (isLoadingMore || !hasMoreMessages || (!activeContact && !activeGroup)) return;
@@ -1160,6 +1117,21 @@ export function useChat() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  const markChatAsRead = useCallback(() => {
+    if (!socket || (!activeContact && !activeGroup)) return;
+    if (activeContact && (activeContact.unread_count || 0) > 0) {
+      socket.emit('contact:read', { contactId: activeContact.id });
+      setContacts(prev => prev.map(c => 
+        c.id === activeContact.id ? { ...c, unread_count: 0 } : c
+      ));
+    } else if (activeGroup && (activeGroup.unread_count || 0) > 0) {
+      socket.emit('group:read', { groupId: activeGroup.id });
+      setGroups(prev => prev.map(g => 
+        g.id === activeGroup.id ? { ...g, unread_count: 0 } : g
+      ));
+    }
+  }, [socket, activeContact, activeGroup, setContacts, setGroups]);
+
   return {
     user,
     token,
@@ -1258,6 +1230,7 @@ export function useChat() {
     handleSnoozeReminder,
     handleDismissReminder,
     handlePinMessage,
-    handleUnpinMessage
+    handleUnpinMessage,
+    markChatAsRead
   };
 }

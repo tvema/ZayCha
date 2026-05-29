@@ -45,6 +45,7 @@ interface MessageListProps {
   isLoadingMore?: boolean;
   scrollPositionsRef: React.RefObject<Record<string, { scrollTop?: number; distanceFromBottom?: number; wasAtBottom: boolean }>>;
   onMessageClick?: (msg: Message) => void;
+  markChatAsRead?: () => void;
 }
 
 import { MessageItem } from '@/components/chat/MessageItem';
@@ -77,8 +78,19 @@ export function MessageList({
   hasMoreMessages,
   isLoadingMore,
   scrollPositionsRef,
-  onMessageClick
+  onMessageClick,
+  markChatAsRead
 }: MessageListProps) {
+  // UNREAD MESSAGES MECHANICS & "NEW MESSAGES" BADGE:
+  // 1. When we first load the chat, if there are unread messages, we establish `hasNewMessages`=true and mark the first one.
+  // 2. The blue button is visible strictly as long as `!isAtBottom`. If the user hits the absolute bottom, it disappears immediately.
+  // 3. Reaching to the bottom sets `isAtBottom`=true, but the "New Messages" banner (badge) and `hasNewMessages` state
+  //    are intentionally delayed by 3 seconds before being wiped out (via `clearBadgeTimeoutRef`).
+  // 4. Once `hasNewMessages` becomes false and the badge is hidden, we call `markChatAsRead` to update the Sidebar unread counters.
+  //    This guarantees that the user sees unread counters in the Sidebar until they actually scroll past them to read them.
+  // 5. If the user clicks the blue button while `hasNewMessages` is true, 
+  //    we find the next unread message (page down behavior) by matching what's just below their current viewport.
+
   const { theme: currentTheme } = useTheme();
   const { t, language } = useLanguage();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -195,9 +207,10 @@ export function MessageList({
         setUnreadBadgeId(null);
         firstUnreadMessageIdRef.current = null;
         clearBadgeTimeoutRef.current = null;
+        if (markChatAsRead) markChatAsRead();
       }, 3000);
     }
-  }, [chatId]);
+  }, [chatId, markChatAsRead]);
 
   const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current;
@@ -260,6 +273,7 @@ export function MessageList({
           setUnreadBadgeId(null);
           firstUnreadMessageIdRef.current = null;
           clearBadgeTimeoutRef.current = null;
+          if (markChatAsRead) markChatAsRead();
         }, 3000);
       }
     } else {
@@ -694,16 +708,16 @@ export function MessageList({
       </div>
       </div>
 
-      {/* Scroll to Bottom Button */}
+        {/* Scroll to Bottom Button */}
       <button
         onClick={(e) => {
           e.stopPropagation();
           const container = scrollContainerRef.current;
           if (!container) return;
 
-          // If there is an existing target, and we are clicking...
-          // We should first update the unread badge to whatever is at the bottom of the CURRENT view
-          // Because user has read the screen they are on!
+          // [PAGE DOWN MECHANICS]: Clicking the blue button while there are unread messages does a page-down style scroll.
+          // Before scrolling, we update the "New Messages" badge position to properly bound to the bottom-most message 
+          // currently visible in the viewport, as the user has now inherently 'seen' everything above it.
           if (hasNewMessages) {
             const viewportBottom = container.scrollTop + container.clientHeight;
             const containerRectTop = container.getBoundingClientRect().top;
@@ -774,7 +788,7 @@ export function MessageList({
           }
         }}
         className={`absolute bottom-6 right-6 z-30 bg-indigo-500 text-white p-3 rounded-full shadow-xl hover:bg-indigo-600 transition-all duration-300 flex items-center justify-center group border-2 border-white dark:border-neutral-800 ${
-          (!isAtBottom || hasNewMessages)
+          (!isAtBottom)
             ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto'
             : 'opacity-0 translate-y-8 scale-75 pointer-events-none'
         }`}

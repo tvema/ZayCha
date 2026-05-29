@@ -450,6 +450,7 @@ export default function ChatApp() {
         highlightedMessageId={chat.highlightedMessageId}
         setHighlightedMessageId={chat.setHighlightedMessageId}
         token={chat.token}
+        markChatAsRead={chat.markChatAsRead}
       />
       )}
 
