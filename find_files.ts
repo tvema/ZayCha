@@ -5,7 +5,7 @@ const now = Date.now();
 const oneHourAgo = now - 60 * 60 * 1000;
 
 function scan(dir: string, depth = 0) {
-  if (depth > 8) return;
+  if (depth > 20) return;
   try {
     const files = fs.readdirSync(dir);
     for (const file of files) {
@@ -16,8 +16,8 @@ function scan(dir: string, depth = 0) {
         if (stats.isDirectory()) {
           scan(fullPath, depth + 1);
         } else {
-          if (stats.mtimeMs > oneHourAgo) {
-            console.log(`RECENT: ${fullPath} (${stats.size} Bytes) - ${stats.mtime.toISOString()}`);
+          if (stats.mtimeMs > (Date.now() - 15 * 60 * 1000)) {
+            console.log(`NEW: ${fullPath} (${stats.size} Bytes) - ${stats.mtime.toISOString()}`);
           }
         }
       } catch (e) {}

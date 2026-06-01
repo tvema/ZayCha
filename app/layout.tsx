@@ -22,8 +22,20 @@ export const metadata: Metadata = {
   description: "Закрытый мессенджер для своих",
   manifest: "/manifest.json",
   icons: {
-    icon: '/icon-192x192.png',
-    apple: '/icon-192x192.png',
+    icon: [
+      { url: '/icon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/icon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/icon-48x48.png', sizes: '48x48', type: 'image/png' },
+      { url: '/icon-64x64.png', sizes: '64x64', type: 'image/png' },
+      { url: '/icon-72x72.png', sizes: '72x72', type: 'image/png' },
+      { url: '/icon-128x128.png', sizes: '128x128', type: 'image/png' },
+      { url: '/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512x512.png', sizes: '512x512', type: 'image/png' }
+    ],
+    apple: [
+      { url: '/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512x512.png', sizes: '512x512', type: 'image/png' }
+    ],
   },
   appleWebApp: {
     capable: true,
