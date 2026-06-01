@@ -16,6 +16,7 @@
     "@tailwindcss/postcss": "^4.0.0-alpha.16",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^11.1.2",
+    "canvas": "^3.2.3",
     "clsx": "^2.1.1",
     "dotenv": "^16.4.5",
     "emoji-picker-react": "^4.11.1",

@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   description: "Закрытый мессенджер для своих",
   manifest: "/manifest.json",
   icons: {
-    icon: '/favicon.ico',
+    icon: '/icon-192x192.png',
     apple: '/icon-192x192.png',
   },
   appleWebApp: {
