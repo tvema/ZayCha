@@ -22,7 +22,9 @@
     "express": "^4.19.2",
     "groq-sdk": "^0.5.0",
     "https-proxy-agent": "^7.0.5",
+    "icojs": "^1.0.0",
     "idb": "^8.0.0",
+    "jimp": "^1.6.1",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.428.0",
     "motion": "^11.11.0",
@@ -32,6 +34,7 @@
     "node-fetch": "^3.3.2",
     "nodemailer": "^6.9.14",
     "pdfjs-dist": "^5.7.284",
+    "pngjs": "^7.0.0",
     "react": "^18.3.1",
     "react-contenteditable": "^3.3.7",
     "react-dom": "^18.3.1",
@@ -41,11 +44,11 @@
     "socket.io-client": "^4.7.5",
     "socks-proxy-agent": "^8.0.4",
     "tailwind-merge": "^2.5.2",
+    "tsx": "^4.22.3",
     "uuid": "^10.0.0",
     "web-push": "^3.6.7",
     "webrtc-adapter": "^9.0.5",
-    "zustand": "^5.0.14",
-    "tsx": "^4.22.3"
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
