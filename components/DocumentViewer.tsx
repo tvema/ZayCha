@@ -18,14 +18,7 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
         setLoading(true);
         const pdfjsLib = await import('pdfjs-dist');
         if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-          try {
-            const workerUrl = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-            const response = await fetch(workerUrl);
-            const blob = await response.blob();
-            pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
-          } catch (e) {
-            console.warn("Could not fetch pdf worker, falling back", e);
-          }
+          pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
         }
         
         let typedarray;
