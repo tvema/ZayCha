@@ -243,16 +243,44 @@ export function useSocketEvents({
       // This state machine ensures the status transition always moves forward:
       // sending -> sent (1 tick) -> delivered (2 ticks, gray) -> read (2 ticks, sky blue).
       // We explicitly check and prevent downgrading from 'read' to 'delivered'.
-      setMessages(prev => prev.map(msg => {
-        if (data.messageIds.includes(msg.id)) {
-          // Do not downgrade from read to delivered
-          if (msg.status === 'read' && data.status === 'delivered') {
-            return msg;
+      setMessages(prev => {
+        const next = prev.map(msg => {
+          if (data.messageIds.includes(msg.id)) {
+            // Do not downgrade from read to delivered
+            if (msg.status === 'read' && data.status === 'delivered') {
+              return msg;
+            }
+            return { ...msg, status: data.status };
           }
-          return { ...msg, status: data.status };
+          return msg;
+        });
+
+        // Sync with cache as well so we don't accidentally fetch older status from cache later
+        if (data.messageIds.length > 0) {
+          const sampleMessage = next.find(m => data.messageIds.includes(m.id));
+          if (sampleMessage) {
+            const chatId = sampleMessage.group_id || (sampleMessage.sender_id === userRef.current?.id ? sampleMessage.receiver_id : sampleMessage.sender_id);
+            if (chatId) {
+              import('@/lib/dbCache').then(({ getCachedMessages, setCachedMessages }) => {
+                getCachedMessages(chatId).then(cached => {
+                  if (cached) {
+                    const cachedNext = cached.map(msg => {
+                      if (data.messageIds.includes(msg.id)) {
+                        if (msg.status === 'read' && data.status === 'delivered') return msg;
+                        return { ...msg, status: data.status };
+                      }
+                      return msg;
+                    });
+                    setCachedMessages(chatId, cachedNext);
+                  }
+                });
+              });
+            }
+          }
         }
-        return msg;
-      }));
+        
+        return next;
+      });
     });
 
     socket.on('reaction:new', (reaction: Reaction & { message_id: string }) => {

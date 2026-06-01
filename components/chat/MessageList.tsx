@@ -117,10 +117,17 @@ export function MessageList({
     };
   }, []);
 
+  const markChatAsReadRef = useRef(markChatAsRead);
+  useEffect(() => {
+    markChatAsReadRef.current = markChatAsRead;
+  }, [markChatAsRead]);
+
   const unreadClearDelayMs = Number(process.env.NEXT_PUBLIC_UNREAD_CLEAR_DELAY_MS) || 3000;
 
   useEffect(() => {
     if (isAtBottom && hasNewMessages) {
+      if (markChatAsReadRef.current) markChatAsReadRef.current(); // Mark read immediately in DB/sidebar
+      
       if (!clearBadgeTimeoutRef.current) {
         clearBadgeTimeoutRef.current = setTimeout(() => {
           setHasNewMessages(false);
@@ -128,7 +135,6 @@ export function MessageList({
           firstUnreadMessageIdRef.current = null;
           unreadCountOnEnterRef.current = 0; // Prevent the badge from being rendered again
           clearBadgeTimeoutRef.current = null;
-          if (markChatAsRead) markChatAsRead();
         }, unreadClearDelayMs);
       }
     } else if (!isAtBottom) {
@@ -137,7 +143,12 @@ export function MessageList({
         clearBadgeTimeoutRef.current = null;
       }
     }
-  }, [isAtBottom, hasNewMessages, markChatAsRead, unreadClearDelayMs]);
+    
+    return () => {
+      // Intentionally NOT clearing the timeout here so it continues ticking even if dependencies change,
+      // UNLESS the component unmounts. For unmount cleanup, see the other useEffect.
+    };
+  }, [isAtBottom, hasNewMessages, unreadClearDelayMs]);
 
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties | undefined>(undefined);
@@ -546,8 +557,20 @@ export function MessageList({
         const isMine = String(lastMessage.sender_id) === String(user.id);
 
         if (isMine || isAtBottom) {
+          if (isMine) {
+            setHasNewMessages(false);
+            setUnreadBadgeId(null);
+            firstUnreadMessageIdRef.current = null;
+            if (clearBadgeTimeoutRef.current) {
+              clearTimeout(clearBadgeTimeoutRef.current);
+              clearBadgeTimeoutRef.current = null;
+            }
+          }
           // Use a small delay to ensure DOM is updated
           setTimeout(() => scrollToBottom(isMine ? 'smooth' : 'auto'), 50);
+          if (!isMine && markChatAsRead) {
+            markChatAsRead(); // Mark immediately if they are seeing it arrive
+          }
         } else {
           setHasNewMessages(true);
           // Set first unread marker if we were scrolled up and another user sent a message
@@ -650,6 +673,7 @@ export function MessageList({
               <AnimatePresence>
                 {isFirstUnread && (
                   <motion.div 
+                    key="unread-badge"
                     id="unread-badge-element" 
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}

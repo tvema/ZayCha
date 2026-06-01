@@ -649,7 +649,6 @@ export function useChat() {
 
     const asyncFetch = async () => {
       let cached: Message[] | null = null;
-      let afterParam = '';
       
       if (id) {
         const rawCached = await getCachedMessages(id);
@@ -668,15 +667,13 @@ export function useChat() {
               return prev;
             });
             setIsLoadingMore(false); // Hide the spinner since we have cache
-            const latestCachedMessage = cached[cached.length - 1];
-            afterParam = `&after=${encodeURIComponent(latestCachedMessage.created_at)}`;
           }
         }
       }
       
       const unreadCount = isGroup ? (activeGroup?.unread_count || 0) : (activeContact?.unread_count || 0);
       const limit = Math.min(100, Math.max(30, unreadCount + 10));
-        const fetchUrl = `/api/messages/${id}?isGroup=${isGroup}&limit=${limit}${afterParam}`;
+      const fetchUrl = `/api/messages/${id}?isGroup=${isGroup}&limit=${limit}`;
         
       try {
         const res = await fetch(fetchUrl, {
@@ -688,7 +685,7 @@ export function useChat() {
           const text = await res.text();
           const rawData = text ? JSON.parse(text) : [];
           
-          if (!afterParam && rawData.length < limit) {
+          if (rawData.length < limit) {
              setHasMoreMessages(false);
           }
           
@@ -702,6 +699,7 @@ export function useChat() {
               
               const allMap = new Map<string, Message>();
               prev.forEach(m => allMap.set(m.id, m));
+              // Merge in newly fetched messages (will overwrite and sync statuses for existing ones)
               decryptedBatch.forEach(m => allMap.set(m.id, m));
               
               const merged = Array.from(allMap.values()).sort((a, b) => {
@@ -717,8 +715,6 @@ export function useChat() {
               
               return merged;
             });
-          } else if (cached && cached.length > 0 && id) {
-            // No new messages, cache is still the best
           }
           
           setIsLoadingMore(false);
@@ -1118,19 +1114,19 @@ export function useChat() {
   }, []);
 
   const markChatAsRead = useCallback(() => {
-    if (!socket || (!activeContact && !activeGroup)) return;
-    if (activeContact && (activeContact.unread_count || 0) > 0) {
+    if (!socket) return;
+    if (activeContact) {
       socket.emit('contact:read', { contactId: activeContact.id });
       setContacts(prev => prev.map(c => 
         c.id === activeContact.id ? { ...c, unread_count: 0 } : c
       ));
-    } else if (activeGroup && (activeGroup.unread_count || 0) > 0) {
+    } else if (activeGroup) {
       socket.emit('group:read', { groupId: activeGroup.id });
       setGroups(prev => prev.map(g => 
         g.id === activeGroup.id ? { ...g, unread_count: 0 } : g
       ));
     }
-  }, [socket, activeContact, activeGroup, setContacts, setGroups]);
+  }, [socket, activeContact?.id, activeGroup?.id, setContacts, setGroups]);
 
   return {
     user,
