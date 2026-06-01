@@ -21,6 +21,10 @@ export const metadata: Metadata = {
   title: "ZayChat",
   description: "Закрытый мессенджер для своих",
   manifest: "/manifest.json",
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/favicon.ico',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
