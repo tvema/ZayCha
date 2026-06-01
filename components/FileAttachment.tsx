@@ -190,7 +190,7 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
         try {
           let cachedBlob = await getFile(uniqueId);
           if (cachedBlob && isMounted) {
-            if (fileData.mime === 'application/pdf') {
+            if ((['application/pdf'].includes(fileData.mime) || fileData.mime?.includes('wordprocessingml') || fileData.mime?.includes('spreadsheetml') || fileData.name?.toLowerCase().endsWith('.pdf') || fileData.name?.toLowerCase().endsWith('.docx') || fileData.name?.toLowerCase().endsWith('.xlsx'))) {
                cachedBlob = new Blob([cachedBlob], { type: 'application/pdf' });
             }
             rawBlobRef.current = cachedBlob;
@@ -781,7 +781,7 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
               <p className="text-[9px] text-neutral-400 dark:text-neutral-500">{(fileData.size / 1024).toFixed(1)} KB</p>
             </div>
           )}
-          {isViewerOpen && blobUrl && fileData.mime === 'application/pdf' && (
+          {isViewerOpen && blobUrl && (['application/pdf'].includes(fileData.mime) || fileData.mime?.includes('wordprocessingml') || fileData.mime?.includes('spreadsheetml') || fileData.name?.toLowerCase().endsWith('.pdf') || fileData.name?.toLowerCase().endsWith('.docx') || fileData.name?.toLowerCase().endsWith('.xlsx')) && (
             <Portal>
               <AnimatePresence>
                 <DocumentViewer 
@@ -824,7 +824,7 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
             <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 truncate px-1">{fileData.name}</p>
           </div>
           
-          {isViewerOpen && blobUrl && fileData.mime === 'application/pdf' && (
+          {isViewerOpen && blobUrl && (['application/pdf'].includes(fileData.mime) || fileData.mime?.includes('wordprocessingml') || fileData.mime?.includes('spreadsheetml') || fileData.name?.toLowerCase().endsWith('.pdf') || fileData.name?.toLowerCase().endsWith('.docx') || fileData.name?.toLowerCase().endsWith('.xlsx')) && (
             <Portal>
               <AnimatePresence>
                 <DocumentViewer 
@@ -855,7 +855,7 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
           {extVisuals.ext}
         </span>
         
-        {isViewerOpen && blobUrl && fileData.mime === 'application/pdf' && (
+        {isViewerOpen && blobUrl && (['application/pdf'].includes(fileData.mime) || fileData.mime?.includes('wordprocessingml') || fileData.mime?.includes('spreadsheetml') || fileData.name?.toLowerCase().endsWith('.pdf') || fileData.name?.toLowerCase().endsWith('.docx') || fileData.name?.toLowerCase().endsWith('.xlsx')) && (
           <Portal>
             <AnimatePresence>
               <DocumentViewer 
@@ -1161,7 +1161,7 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
         </div>
       </div>
 
-      {fileData.mime === 'application/pdf' && !loading && blobUrl && (
+      {(['application/pdf'].includes(fileData.mime) || fileData.mime?.includes('wordprocessingml') || fileData.mime?.includes('spreadsheetml') || fileData.name?.toLowerCase().endsWith('.pdf') || fileData.name?.toLowerCase().endsWith('.docx') || fileData.name?.toLowerCase().endsWith('.xlsx')) && !loading && blobUrl && (
         <Portal>
           <AnimatePresence>
             {isViewerOpen && (

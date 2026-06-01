@@ -7,21 +7,24 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
   const [scale, setScale] = useState(1.0);
   const [pdfProxy, setPdfProxy] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [docType, setDocType] = useState<'pdf' | 'docx' | 'xlsx' | null>(null);
+  const [contentHtml, setContentHtml] = useState<string>('');
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<any>(null);
 
   useEffect(() => {
     let active = true;
-    const loadPdf = async () => {
+    const loadDocument = async () => {
       try {
         setLoading(true);
-        const pdfjsLib = await import('pdfjs-dist');
-        if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-          pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-        }
+        let activeDocType: 'pdf' | 'docx' | 'xlsx' = 'pdf';
+        if (alt.toLowerCase().endsWith('.docx') || src.includes('wordprocessingml.document')) activeDocType = 'docx';
+        else if (alt.toLowerCase().endsWith('.xlsx') || src.includes('spreadsheetml.sheet')) activeDocType = 'xlsx';
         
-        let typedarray;
+        setDocType(activeDocType);
+
+        let typedarray: Uint8Array | null = null;
         if (src.startsWith('data:')) {
           const base64 = src.split(',')[1];
           const binary_string = window.atob(base64);
@@ -42,40 +45,71 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
             console.error("Fetch failed, will fallback", e);
           }
         }
-        
+
         if (!active) return;
+
+        if (activeDocType === 'pdf') {
+          const pdfjsLib = await import('pdfjs-dist');
+          if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+            try {
+              const workerUrl = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+              const response = await fetch(workerUrl);
+              const blob = await response.blob();
+              pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
+            } catch (e) {
+              console.warn("Could not fetch pdf worker, falling back", e);
+            }
+          }
+          
+          const documentProxy = typedarray 
+               ? pdfjsLib.getDocument({ data: typedarray }) 
+               : pdfjsLib.getDocument({ url: src });
+               
+          const pdf = await documentProxy.promise;
+          if (!active) return;
+          
+          setPdfProxy(pdf);
+          setNumPages(pdf.numPages);
+          setPageNumber(1);
+        } else if (activeDocType === 'docx') {
+          if (typedarray) {
+            // @ts-ignore
+            const mammoth = (await import('mammoth/mammoth.browser')).default || (await import('mammoth/mammoth.browser'));
+            const result = await mammoth.convertToHtml({ arrayBuffer: typedarray.buffer });
+            if (active) setContentHtml(result.value);
+          }
+        } else if (activeDocType === 'xlsx') {
+          if (typedarray) {
+            const XLSX = await import('xlsx');
+            const wb = XLSX.read(typedarray, { type: 'array' });
+            const sheetName = wb.SheetNames[0];
+            const html = XLSX.utils.sheet_to_html(wb.Sheets[sheetName], { header: '' });
+            if (active) setContentHtml(html);
+          }
+        }
         
-        const documentProxy = typedarray 
-             ? pdfjsLib.getDocument({ data: typedarray }) 
-             : pdfjsLib.getDocument({ url: src });
-             
-        const pdf = await documentProxy.promise;
-        
-        if (!active) return;
-        
-        setPdfProxy(pdf);
-        setNumPages(pdf.numPages);
-        setPageNumber(1);
-        setLoading(false);
+        if (active) setLoading(false);
       } catch (err) {
-        console.error("Failed to load PDF", err);
-        setLoading(false);
+        console.error("Failed to load document", err);
+        if (active) setLoading(false);
       }
     };
     
-    loadPdf();
+    loadDocument();
     return () => { active = false; };
-  }, [src]);
+  }, [src, alt]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
-      if (e.key === 'ArrowRight' && pageNumber < numPages) setPageNumber(p => p + 1);
-      if (e.key === 'ArrowLeft' && pageNumber > 1) setPageNumber(p => p - 1);
+      if (docType === 'pdf') {
+        if (e.key === 'ArrowRight' && pageNumber < numPages) setPageNumber(p => p + 1);
+        if (e.key === 'ArrowLeft' && pageNumber > 1) setPageNumber(p => p - 1);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, pageNumber, numPages]);
+  }, [onClose, pageNumber, numPages, docType]);
 
   const onGenerateThumbnailRef = useRef(onGenerateThumbnail);
   useEffect(() => {
@@ -85,7 +119,7 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
   useEffect(() => {
     let active = true;
     const renderPage = async () => {
-      if (!pdfProxy || !canvasRef.current) return;
+      if (docType !== 'pdf' || !pdfProxy || !canvasRef.current) return;
       try {
         if (renderTaskRef.current) {
           try {
@@ -145,17 +179,16 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
          }
       }
     };
-    if (!loading) {
-      // Small timeout to allow state to settle
+    if (!loading && docType === 'pdf') {
       setTimeout(() => { if (active) renderPage(); }, 0);
     }
     return () => { active = false; };
-  }, [pdfProxy, pageNumber, scale, loading]);
+  }, [pdfProxy, pageNumber, scale, loading, docType]);
 
   const downloadFile = () => {
     const a = document.createElement('a');
     a.href = src;
-    a.download = alt || 'document.pdf';
+    a.download = alt || 'document';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -168,7 +201,7 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
           {alt}
         </div>
         <div className="flex items-center gap-2 pointer-events-auto shadow-lg bg-black/40 rounded-full px-2 py-1" onClick={(e) => e.stopPropagation()}>
-          {numPages > 0 && (
+          {docType === 'pdf' && numPages > 0 && (
             <>
               <button onClick={(e) => { e.stopPropagation(); setScale(s => Math.max(0.5, s - 0.2)); }} className="p-2.5 text-white/70 hover:text-white hover:bg-white/20 rounded-full transition-all">
                 <ZoomOut size={20} />
@@ -192,16 +225,24 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
           <div className="flex items-center justify-center p-12 mt-20" onClick={(e) => e.stopPropagation()}>
              <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
           </div>
-        ) : (
+        ) : docType === 'pdf' ? (
           <canvas 
             ref={canvasRef} 
             className="bg-white shadow-xl max-w-full h-auto transition-transform origin-top"
             onClick={(e) => e.stopPropagation()}
           />
+        ) : (docType === 'docx' || docType === 'xlsx') ? (
+          <div 
+            className="bg-white shadow-xl p-8 rounded-lg w-full max-w-4xl min-h-[80vh] text-black prose prose-sm md:prose-base prose-indigo overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+            dangerouslySetInnerHTML={{ __html: contentHtml }}
+          />
+        ) : (
+           <div className="text-white mt-10">Unsupported format</div>
         )}
       </div>
 
-      {numPages > 1 && !loading && (
+      {docType === 'pdf' && numPages > 1 && !loading && (
         <div className="absolute bottom-6 inset-x-0 flex justify-center pointer-events-none z-10" onClick={(e) => e.stopPropagation()}>
           <div className="bg-black/60 backdrop-blur-md rounded-full px-4 py-2 flex items-center gap-4 pointer-events-auto shadow-lg" onClick={(e) => e.stopPropagation()}>
             <button 
