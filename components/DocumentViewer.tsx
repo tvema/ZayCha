@@ -68,7 +68,7 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
           setPageNumber(1);
         } else if (activeDocType === 'docx') {
           if (typedarray) {
-            if (typedarray.byteLength > 15 * 1024 * 1024) {
+            if (typedarray.byteLength > 3 * 1024 * 1024) {
               if (active) setContentHtml('<div class="p-4 text-center text-red-500 font-medium">Файл слишком большой для предварительного просмотра. Пожалуйста, скачайте его.</div>');
             } else {
               try {
@@ -87,7 +87,7 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
           }
         } else if (activeDocType === 'xlsx') {
           if (typedarray) {
-            if (typedarray.byteLength > 15 * 1024 * 1024) {
+            if (typedarray.byteLength > 3 * 1024 * 1024) {
               if (active) setContentHtml('<div class="p-4 text-center text-red-500 font-medium">Файл слишком большой для предварительного просмотра. Пожалуйста, скачайте его.</div>');
             } else {
               try {
@@ -103,7 +103,7 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
           }
         } else if (activeDocType === 'odt') {
           if (typedarray) {
-            if (typedarray.byteLength > 15 * 1024 * 1024) {
+            if (typedarray.byteLength > 3 * 1024 * 1024) {
               if (active) setContentHtml('<div class="p-4 text-center text-red-500 font-medium">Файл слишком большой для предварительного просмотра. Пожалуйста, скачайте его.</div>');
             } else {
               try {
