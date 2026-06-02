@@ -812,7 +812,7 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
           <div className="absolute top-3 left-3 opacity-80">
             <FileIcon className={`w-5 h-5 ${extVisuals.text}`} />
           </div>
-          <div className="flex flex-col items-center justify-center -translate-y-2 select-none group-hover:scale-105 transition-transform duration-300">
+          <div className="flex flex-col items-center justify-center -translate-y-[2px] select-none group-hover:scale-105 transition-transform duration-300">
             <span className={`text-2xl font-black tracking-wider ${extVisuals.text}`}>
               {extVisuals.ext}
             </span>
@@ -1134,11 +1134,13 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
     );
   }
 
+  const extVisuals = getExtensionVisuals(fileData.name, fileData.mime);
+
   return (
     <>
       <div 
         onClick={(e) => {
-          if (fileData.mime === 'application/pdf') {
+          if (['application/pdf'].includes(fileData.mime) || fileData.mime?.includes('wordprocessingml') || fileData.mime?.includes('spreadsheetml') || fileData.name?.toLowerCase().endsWith('.pdf') || fileData.name?.toLowerCase().endsWith('.docx') || fileData.name?.toLowerCase().endsWith('.xlsx')) {
             e.preventDefault();
             setIsViewerOpen(true);
           } else {
@@ -1152,11 +1154,14 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
         }}
         className="flex items-center gap-3 p-3 bg-white hover:bg-neutral-50 rounded-xl border border-neutral-200 transition-colors cursor-pointer"
       >
-        <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
-          <FileIcon size={20} />
+        <div className={`w-10 h-10 rounded-lg flex flex-col items-center justify-center shrink-0 border border-neutral-200/40 relative overflow-hidden ${extVisuals.bg}`}>
+          <span className={`text-[9px] font-black tracking-wider uppercase z-10 translate-y-[2px] ${extVisuals.text}`}>
+            {extVisuals.ext}
+          </span>
+          <FileIcon size={24} className={`absolute inset-0 m-auto opacity-20 ${extVisuals.text}`} />
         </div>
-        <div>
-          <p className="text-sm font-medium text-neutral-700 truncate max-w-[150px]">{fileData.name}</p>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-neutral-700 truncate">{fileData.name}</p>
           <p className="text-xs text-neutral-500">{(fileData.size / 1024).toFixed(1)} KB</p>
         </div>
       </div>

@@ -66,11 +66,23 @@ export function SharedMediaRenderer({ messages, activeTab, socket = null, active
     fetchMedia(false);
   }, [activeGroup?.id, activeContact?.id]);
 
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && hasMore && !isLoading) {
+        fetchMedia(true);
+      }
+    }, { rootMargin: '100px' });
+    
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, isLoading, fetchMedia]);
+
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
-    if (scrollHeight - scrollTop <= clientHeight * 1.5 && hasMore && !isLoading) {
-      fetchMedia(true);
-    }
+    // Scroll handling is now primarily managed by IntersectionObserver
+    // but we can keep this as a fallback if needed
   };
 
   const allMessages = useMemo(() => {
@@ -209,6 +221,7 @@ export function SharedMediaRenderer({ messages, activeTab, socket = null, active
             <Loader2 className="w-6 h-6 animate-spin text-neutral-400" />
           </div>
         )}
+        <div ref={sentinelRef} className="col-span-3 h-1" />
       </div>
     );
   }
@@ -260,6 +273,7 @@ export function SharedMediaRenderer({ messages, activeTab, socket = null, active
             <Loader2 className="w-6 h-6 animate-spin text-neutral-400" />
           </div>
         )}
+        <div ref={sentinelRef} className="col-span-3 h-1" />
       </div>
     );
   }
@@ -286,6 +300,7 @@ export function SharedMediaRenderer({ messages, activeTab, socket = null, active
             <Loader2 className="w-6 h-6 animate-spin text-neutral-400" />
           </div>
         )}
+        <div ref={sentinelRef} className="h-1 shrink-0" />
       </div>
     );
   }
@@ -311,6 +326,7 @@ export function SharedMediaRenderer({ messages, activeTab, socket = null, active
             <Loader2 className="w-6 h-6 animate-spin text-neutral-400" />
           </div>
         )}
+        <div ref={sentinelRef} className="h-1 shrink-0" />
       </div>
     );
   }
