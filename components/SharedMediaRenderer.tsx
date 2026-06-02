@@ -78,7 +78,7 @@ export function SharedMediaRenderer({ messages, activeTab, socket = null, active
     
     observer.observe(sentinelRef.current);
     return () => observer.disconnect();
-  }, [hasMore, isLoading, fetchMedia]);
+  }, [hasMore, isLoading, fetchMedia, activeTab]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     // Scroll handling is now primarily managed by IntersectionObserver

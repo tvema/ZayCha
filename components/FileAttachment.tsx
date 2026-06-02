@@ -20,11 +20,13 @@ const DocumentViewer = dynamic(() => import('./DocumentViewer').then(mod => mod.
 const isDocumentViewerSupported = (mime: string, name: string) => {
   const lowerName = name?.toLowerCase() || '';
   return ['application/pdf'].includes(mime) || 
+         mime?.includes('msword') ||
          mime?.includes('wordprocessingml') || 
          mime?.includes('spreadsheetml') || 
          mime?.includes('opendocument.text') || 
          mime?.includes('opendocument.spreadsheet') ||
          lowerName.endsWith('.pdf') || 
+         lowerName.endsWith('.doc') || 
          lowerName.endsWith('.docx') || 
          lowerName.endsWith('.xlsx') || 
          lowerName.endsWith('.xls') || 
@@ -630,10 +632,9 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
       if (loading && !shouldDownload) {
         setShouldDownload(true);
       } else if (!loading) {
-        const isPdf = fileData.mime === 'application/pdf';
         const isImg = fileData.mime?.startsWith('image/');
         const isVid = fileData.mime?.startsWith('video/');
-        if (isPdf || isImg || isVid) {
+        if (isDocumentViewerSupported(fileData.mime, fileData.name) || isImg || isVid) {
           setIsViewerOpen(true);
         } else {
           if (blobUrl) {

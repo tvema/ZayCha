@@ -68,24 +68,52 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
           setPageNumber(1);
         } else if (activeDocType === 'docx') {
           if (typedarray) {
-            // @ts-ignore
-            const mammoth = (await import('mammoth/mammoth.browser')).default || (await import('mammoth/mammoth.browser'));
-            const result = await mammoth.convertToHtml({ arrayBuffer: typedarray.buffer });
-            if (active) setContentHtml(result.value);
+            if (typedarray.byteLength > 15 * 1024 * 1024) {
+              if (active) setContentHtml('<div class="p-4 text-center text-red-500 font-medium">Файл слишком большой для предварительного просмотра. Пожалуйста, скачайте его.</div>');
+            } else {
+              try {
+                // @ts-ignore
+                const mammoth = (await import('mammoth/mammoth.browser')).default || (await import('mammoth/mammoth.browser'));
+                const result = await mammoth.convertToHtml({ arrayBuffer: typedarray.buffer });
+                if (active) setContentHtml(result.value || '<div class="p-4 text-center text-neutral-500">Документ пуст или текст в нём содержит неподдерживаемые форматы.</div>');
+              } catch (e) {
+                if (lowerAlt.endsWith('.doc') && !lowerAlt.endsWith('.docx')) {
+                  if (active) setContentHtml('<div class="p-4 text-center text-red-500 font-medium">Формат .doc (старый Word) не поддерживается для превью. Пожалуйста, сохраните файл на диск или конвертируйте его в .docx.</div>');
+                } else {
+                  if (active) setContentHtml('<div class="p-4 text-center text-red-500 font-medium">Ошибка загрузки содержимого документа. Возможно, файл повреждён.</div>');
+                }
+              }
+            }
           }
         } else if (activeDocType === 'xlsx') {
           if (typedarray) {
-            const XLSX = await import('xlsx');
-            const wb = XLSX.read(typedarray, { type: 'array' });
-            const sheetName = wb.SheetNames[0];
-            const html = XLSX.utils.sheet_to_html(wb.Sheets[sheetName], { header: '' });
-            if (active) setContentHtml(html);
+            if (typedarray.byteLength > 15 * 1024 * 1024) {
+              if (active) setContentHtml('<div class="p-4 text-center text-red-500 font-medium">Файл слишком большой для предварительного просмотра. Пожалуйста, скачайте его.</div>');
+            } else {
+              try {
+                const XLSX = await import('xlsx');
+                const wb = XLSX.read(typedarray, { type: 'array', sheetRows: 500 });
+                const sheetName = wb.SheetNames[0];
+                const html = XLSX.utils.sheet_to_html(wb.Sheets[sheetName], { header: '' });
+                if (active) setContentHtml(html);
+              } catch (e) {
+                if (active) setContentHtml('<div class="p-4 text-center text-red-500 font-medium">Ошибка чтения таблицы. ' + ((e as any)?.message || '') + '</div>');
+              }
+            }
           }
         } else if (activeDocType === 'odt') {
           if (typedarray) {
-            const { odtToHtml } = await import('odf-kit/odt-reader');
-            const html = odtToHtml(typedarray);
-            if (active) setContentHtml(html);
+            if (typedarray.byteLength > 15 * 1024 * 1024) {
+              if (active) setContentHtml('<div class="p-4 text-center text-red-500 font-medium">Файл слишком большой для предварительного просмотра. Пожалуйста, скачайте его.</div>');
+            } else {
+              try {
+                const { odtToHtml } = await import('odf-kit/odt-reader');
+                const html = odtToHtml(typedarray);
+                if (active) setContentHtml(html);
+              } catch(e) {
+                if (active) setContentHtml('<div class="p-4 text-center text-red-500 font-medium">Ошибка чтения ODT/ODS документа. Возможно, формат не поддерживается.</div>');
+              }
+            }
           }
         }
         
