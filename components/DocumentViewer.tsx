@@ -7,7 +7,7 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
   const [scale, setScale] = useState(1.0);
   const [pdfProxy, setPdfProxy] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [docType, setDocType] = useState<'pdf' | 'docx' | 'xlsx' | null>(null);
+  const [docType, setDocType] = useState<'pdf' | 'docx' | 'xlsx' | 'odt' | null>(null);
   const [contentHtml, setContentHtml] = useState<string>('');
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -18,9 +18,11 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
     const loadDocument = async () => {
       try {
         setLoading(true);
-        let activeDocType: 'pdf' | 'docx' | 'xlsx' = 'pdf';
-        if (alt.toLowerCase().endsWith('.docx') || src.includes('wordprocessingml.document')) activeDocType = 'docx';
-        else if (alt.toLowerCase().endsWith('.xlsx') || src.includes('spreadsheetml.sheet')) activeDocType = 'xlsx';
+        let activeDocType: 'pdf' | 'docx' | 'xlsx' | 'odt' = 'pdf';
+        const lowerAlt = alt.toLowerCase();
+        if (lowerAlt.endsWith('.docx') || src.includes('wordprocessingml.document')) activeDocType = 'docx';
+        else if (lowerAlt.endsWith('.xlsx') || lowerAlt.endsWith('.xls') || lowerAlt.endsWith('.ods') || src.includes('spreadsheetml')) activeDocType = 'xlsx';
+        else if (lowerAlt.endsWith('.odt') || src.includes('opendocument.text')) activeDocType = 'odt';
         
         setDocType(activeDocType);
 
@@ -77,6 +79,12 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
             const wb = XLSX.read(typedarray, { type: 'array' });
             const sheetName = wb.SheetNames[0];
             const html = XLSX.utils.sheet_to_html(wb.Sheets[sheetName], { header: '' });
+            if (active) setContentHtml(html);
+          }
+        } else if (activeDocType === 'odt') {
+          if (typedarray) {
+            const { odtToHtml } = await import('odf-kit/odt-reader');
+            const html = odtToHtml(typedarray);
             if (active) setContentHtml(html);
           }
         }
@@ -224,9 +232,11 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
             className="bg-white shadow-xl max-w-full h-auto transition-transform origin-top"
             onClick={(e) => e.stopPropagation()}
           />
-        ) : (docType === 'docx' || docType === 'xlsx') ? (
+        ) : (docType === 'docx' || docType === 'xlsx' || docType === 'odt') ? (
           <div 
-            className="bg-white shadow-xl p-8 rounded-lg w-full max-w-4xl min-h-[80vh] text-black prose prose-sm md:prose-base prose-indigo overflow-auto"
+            className={`bg-white shadow-xl text-black prose prose-sm md:prose-base prose-indigo overflow-auto ${
+              docType === 'xlsx' ? 'rounded-lg max-w-full p-4 w-auto [&_table]:border-collapse [&_table]:border-neutral-300 [&_td]:border [&_td]:border-neutral-300 [&_th]:border [&_th]:border-neutral-300 [&_td]:p-2 [&_th]:p-2 [&_th]:bg-neutral-100' : 'w-full max-w-[21cm] min-h-[29.7cm] p-8 lg:p-12 md:p-10 sm:p-8 shrink-0'
+            }`}
             onClick={(e) => e.stopPropagation()}
             dangerouslySetInnerHTML={{ __html: contentHtml }}
           />

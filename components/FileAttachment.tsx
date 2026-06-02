@@ -17,6 +17,21 @@ import dynamic from 'next/dynamic';
 
 const DocumentViewer = dynamic(() => import('./DocumentViewer').then(mod => mod.DocumentViewer), { ssr: false });
 
+const isDocumentViewerSupported = (mime: string, name: string) => {
+  const lowerName = name?.toLowerCase() || '';
+  return ['application/pdf'].includes(mime) || 
+         mime?.includes('wordprocessingml') || 
+         mime?.includes('spreadsheetml') || 
+         mime?.includes('opendocument.text') || 
+         mime?.includes('opendocument.spreadsheet') ||
+         lowerName.endsWith('.pdf') || 
+         lowerName.endsWith('.docx') || 
+         lowerName.endsWith('.xlsx') || 
+         lowerName.endsWith('.xls') || 
+         lowerName.endsWith('.odt') || 
+         lowerName.endsWith('.ods');
+};
+
 const getExtensionVisuals = (name: string, mime: string) => {
   const ext = (name ? (name.split('.').pop() || '') : '').toLowerCase();
   
@@ -190,8 +205,8 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
         try {
           let cachedBlob = await getFile(uniqueId);
           if (cachedBlob && isMounted) {
-            if ((['application/pdf'].includes(fileData.mime) || fileData.mime?.includes('wordprocessingml') || fileData.mime?.includes('spreadsheetml') || fileData.name?.toLowerCase().endsWith('.pdf') || fileData.name?.toLowerCase().endsWith('.docx') || fileData.name?.toLowerCase().endsWith('.xlsx'))) {
-               cachedBlob = new Blob([cachedBlob], { type: 'application/pdf' });
+            if (isDocumentViewerSupported(fileData.mime, fileData.name)) {
+               cachedBlob = new Blob([cachedBlob], { type: fileData.mime || 'application/octet-stream' });
             }
             rawBlobRef.current = cachedBlob;
             currentBlobUrl = URL.createObjectURL(cachedBlob);
@@ -781,7 +796,7 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
               <p className="text-[9px] text-neutral-400 dark:text-neutral-500">{(fileData.size / 1024).toFixed(1)} KB</p>
             </div>
           )}
-          {isViewerOpen && blobUrl && (['application/pdf'].includes(fileData.mime) || fileData.mime?.includes('wordprocessingml') || fileData.mime?.includes('spreadsheetml') || fileData.name?.toLowerCase().endsWith('.pdf') || fileData.name?.toLowerCase().endsWith('.docx') || fileData.name?.toLowerCase().endsWith('.xlsx')) && (
+          {isViewerOpen && blobUrl && isDocumentViewerSupported(fileData.mime, fileData.name) && (
             <Portal>
               <AnimatePresence>
                 <DocumentViewer 
@@ -824,7 +839,7 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
             <p className="text-[11px] font-semibold text-neutral-800 dark:text-neutral-200 truncate px-1">{fileData.name}</p>
           </div>
           
-          {isViewerOpen && blobUrl && (['application/pdf'].includes(fileData.mime) || fileData.mime?.includes('wordprocessingml') || fileData.mime?.includes('spreadsheetml') || fileData.name?.toLowerCase().endsWith('.pdf') || fileData.name?.toLowerCase().endsWith('.docx') || fileData.name?.toLowerCase().endsWith('.xlsx')) && (
+          {isViewerOpen && blobUrl && isDocumentViewerSupported(fileData.mime, fileData.name) && (
             <Portal>
               <AnimatePresence>
                 <DocumentViewer 
@@ -855,7 +870,7 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
           {extVisuals.ext}
         </span>
         
-        {isViewerOpen && blobUrl && (['application/pdf'].includes(fileData.mime) || fileData.mime?.includes('wordprocessingml') || fileData.mime?.includes('spreadsheetml') || fileData.name?.toLowerCase().endsWith('.pdf') || fileData.name?.toLowerCase().endsWith('.docx') || fileData.name?.toLowerCase().endsWith('.xlsx')) && (
+        {isViewerOpen && blobUrl && isDocumentViewerSupported(fileData.mime, fileData.name) && (
           <Portal>
             <AnimatePresence>
               <DocumentViewer 
@@ -1140,7 +1155,7 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
     <>
       <div 
         onClick={(e) => {
-          if (['application/pdf'].includes(fileData.mime) || fileData.mime?.includes('wordprocessingml') || fileData.mime?.includes('spreadsheetml') || fileData.name?.toLowerCase().endsWith('.pdf') || fileData.name?.toLowerCase().endsWith('.docx') || fileData.name?.toLowerCase().endsWith('.xlsx')) {
+          if (isDocumentViewerSupported(fileData.mime, fileData.name)) {
             e.preventDefault();
             setIsViewerOpen(true);
           } else {
@@ -1166,7 +1181,7 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
         </div>
       </div>
 
-      {(['application/pdf'].includes(fileData.mime) || fileData.mime?.includes('wordprocessingml') || fileData.mime?.includes('spreadsheetml') || fileData.name?.toLowerCase().endsWith('.pdf') || fileData.name?.toLowerCase().endsWith('.docx') || fileData.name?.toLowerCase().endsWith('.xlsx')) && !loading && blobUrl && (
+      {isDocumentViewerSupported(fileData.mime, fileData.name) && !loading && blobUrl && (
         <Portal>
           <AnimatePresence>
             {isViewerOpen && (
