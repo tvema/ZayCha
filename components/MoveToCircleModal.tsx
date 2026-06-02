@@ -34,7 +34,7 @@ export function MoveToCircleModal({
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            exit={{ opacity: 0, backdropFilter: 'blur(0px)', pointerEvents: 'none' }}
             onClick={onClose}
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
           />

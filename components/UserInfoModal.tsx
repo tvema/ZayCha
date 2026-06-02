@@ -27,12 +27,20 @@ export const UserInfoModal = ({ isOpen, onClose, user, currentUser, messages = [
   return (
     <AnimatePresence>
       {isOpen && user && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+        <motion.div 
+          key={`user-info-${user.id}`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0, backdropFilter: 'blur(0px)', pointerEvents: 'none' }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          onClick={onClose}
+        >
           <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
+            initial={{ scale: 0.95 }}
+            animate={{ scale: 1 }}
+            exit={{ scale: 0.95, pointerEvents: 'none' }}
             className="bg-white dark:bg-neutral-900 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl relative h-[90vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
           >
             <button 
               onClick={onClose}
@@ -142,7 +150,7 @@ export const UserInfoModal = ({ isOpen, onClose, user, currentUser, messages = [
               )}
             </div>
           </motion.div>
-        </div>
+        </motion.div>
       )}
     </AnimatePresence>
   );

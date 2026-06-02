@@ -37,7 +37,7 @@ export default function ForwardModal({ isOpen, onClose, onForward, contacts, gro
           key="forward-modal"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          exit={{ opacity: 0, backdropFilter: 'blur(0px)', pointerEvents: 'none' }}
           className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
         >
           <motion.div

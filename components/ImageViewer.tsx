@@ -188,7 +188,7 @@ export const ImageViewer = ({ src, alt, onClose }: { src: string, alt: string, o
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      exit={{ opacity: 0, backdropFilter: 'blur(0px)', pointerEvents: 'none' }}
       className="image-viewer-overlay fixed inset-0 z-[100] bg-black/95 flex items-center justify-center overflow-hidden touch-none"
       onWheel={handleWheel}
       onTouchStart={handleTouchStart}

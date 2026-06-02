@@ -115,13 +115,13 @@ export function GroupModal({ isOpen, onClose, token, user, onGroupCreated }: Gro
           key="group-modal"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          exit={{ opacity: 0, backdropFilter: 'blur(0px)', pointerEvents: 'none' }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
         >
           <motion.div
             initial={{ scale: 0.95 }}
             animate={{ scale: 1 }}
-            exit={{ scale: 0.95 }}
+            exit={{ scale: 0.95, pointerEvents: 'none' }}
             className="w-full max-w-md overflow-hidden bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >

@@ -69,7 +69,7 @@ export function AddSharedContactsModal({ isOpen, onClose, contacts, userContacts
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            exit={{ opacity: 0, backdropFilter: 'blur(0px)', pointerEvents: 'none' }}
             className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
             onClick={onClose}
           >

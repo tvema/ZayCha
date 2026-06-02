@@ -205,7 +205,7 @@ export function CameraModal({ isOpen, onClose, onCapture, onPostToFeed }: Camera
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
+        exit={{ opacity: 0, backdropFilter: 'blur(0px)', pointerEvents: 'none' }}
         className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center overflow-hidden"
       >
         {/* Flash Effect Overlay */}
