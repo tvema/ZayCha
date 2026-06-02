@@ -1103,8 +1103,9 @@ export function useChat() {
     const handlePopState = () => {
       if ((window as any).__ignoreChatPopstate) return;
       const hash = window.location.hash;
-      if (hash.includes('chat') || hash.includes('viewer')) {
-        return; // Retain chat view if history goes back to chat or viewer
+      const searchParams = new URLSearchParams(window.location.search);
+      if (hash.includes('chat') || hash.includes('viewer') || searchParams.has('chat') || searchParams.has('group')) {
+        return; // Retain chat view if history goes back to chat or viewer or if opened via deep link
       }
       setActiveContact(null);
       setActiveGroup(null);

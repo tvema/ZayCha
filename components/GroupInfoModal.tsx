@@ -178,12 +178,19 @@ export const GroupInfoModal = ({ isOpen, onClose, group, token, currentUser, mes
   return (
     <AnimatePresence>
       {isOpen && group && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+        <motion.div 
+          key={`group-info-${group.id}`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+        >
           <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
+            initial={{ scale: 0.95 }}
+            animate={{ scale: 1 }}
+            exit={{ scale: 0.95 }}
             className="bg-white dark:bg-neutral-900 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl relative flex flex-col h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
           >
             <button 
               onClick={onClose}
@@ -377,7 +384,7 @@ export const GroupInfoModal = ({ isOpen, onClose, group, token, currentUser, mes
               )}
             </div>
           </motion.div>
-        </div>
+        </motion.div>
       )}
     </AnimatePresence>
   );

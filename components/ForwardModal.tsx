@@ -33,12 +33,19 @@ export default function ForwardModal({ isOpen, onClose, onForward, contacts, gro
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <motion.div 
+          key="forward-modal"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        >
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            initial={{ scale: 0.95, y: 20 }}
+            animate={{ scale: 1, y: 0 }}
+            exit={{ scale: 0.95, y: 20 }}
             className="bg-white dark:bg-neutral-900 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh] border border-neutral-200 dark:border-neutral-800"
+            onClick={(e) => e.stopPropagation()}
           >
           <div id="forward-modal-header" className="p-6 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between bg-white dark:bg-neutral-900 sticky top-0 z-10">
             <h2 id="forward-modal-title" className="text-xl font-bold text-neutral-900 dark:text-neutral-100">{title || t.modals.forwardTitle}</h2>
@@ -138,7 +145,7 @@ export default function ForwardModal({ isOpen, onClose, onForward, contacts, gro
             </div>
           </div>
         </motion.div>
-      </div>
+      </motion.div>
     )}
   </AnimatePresence>
 );
