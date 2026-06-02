@@ -153,7 +153,7 @@ export function SharedMediaRenderer({ messages, activeTab, socket = null, active
     return results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [allMessages, activeTab]);
 
-  if (items.length === 0 && !isLoading) {
+  if (items.length === 0 && !isLoading && !hasMore) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center h-full">
         <div className="w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-4 text-neutral-400">
@@ -163,6 +163,12 @@ export function SharedMediaRenderer({ messages, activeTab, socket = null, active
           {activeTab === 'links' && <LinkIcon size={32} />}
         </div>
         <p className="text-neutral-500 font-medium">Нет данных</p>
+      </div>
+    );
+  } else if (items.length === 0 && hasMore && !isLoading) {
+    return (
+      <div className="h-full overflow-y-auto">
+        <div ref={sentinelRef} className="h-10 w-full" />
       </div>
     );
   }
