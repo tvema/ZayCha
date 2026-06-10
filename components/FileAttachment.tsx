@@ -709,7 +709,7 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
             fill 
             className="object-cover rounded-lg border border-neutral-200" 
             referrerPolicy="no-referrer"
-            unoptimized={fileData.isEncrypted || blobUrl?.startsWith('blob:')}
+            unoptimized
           />
           {isViewerOpen && !loading && blobUrl && (
             <Portal>
@@ -987,7 +987,7 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
                 height={fileData.height!}
                 className="w-full h-auto max-w-full max-h-64 object-contain transition-opacity duration-500 ease-in-out z-10 relative pointer-events-none select-none" 
                 referrerPolicy="no-referrer"
-                unoptimized={fileData.isEncrypted || blobUrl.startsWith('blob:')}
+                unoptimized
               />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
