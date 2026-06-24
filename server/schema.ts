@@ -121,6 +121,13 @@ export function initializeDatabase(db: Database) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS message_reads (
+      message_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      read_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (message_id, user_id)
+    );
+    
     CREATE TABLE IF NOT EXISTS pinned_messages (
       id TEXT PRIMARY KEY,
       chat_id TEXT NOT NULL,

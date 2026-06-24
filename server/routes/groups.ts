@@ -9,7 +9,10 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
   server.get('/api/groups', authenticateToken, (req: any, res) => {
     try {
       const groups = db.prepare(`
-        SELECT g.*, gm.role, gm.joined_at, gm.last_read_at, gm.encrypted_keys
+        SELECT g.*, gm.role, gm.joined_at, gm.last_read_at, gm.encrypted_keys,
+        (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) as member_count,
+        (SELECT COUNT(*) FROM messages m WHERE m.group_id = g.id AND m.created_at > COALESCE(gm.last_read_at, '1970-01-01')) as unread_count,
+        (SELECT MAX(created_at) FROM messages m WHERE m.group_id = g.id) as last_message_timestamp
         FROM groups g
         JOIN group_members gm ON g.id = gm.group_id
         WHERE gm.user_id = ?
@@ -72,7 +75,7 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
                 const socket = io.sockets.sockets.get(socketId);
                 if (socket) {
                   socket.join(groupId);
-                  io.to(socketId).emit('group:created', { id: groupId, name, description, avatar_url: avatarUrl, creator_id: creatorId });
+                  io.to(socketId).emit('group:new', { id: groupId, name, description, avatar_url: avatarUrl, creator_id: creatorId });
                 }
               });
             }
@@ -123,7 +126,7 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
 
       if (addedUserSockets && groupData) {
         addedUserSockets.forEach(socketId => {
-          io.to(socketId).emit('group:created', groupData); 
+          io.to(socketId).emit('group:new', groupData); 
           // Make the added user's socket join the group room
           const socket = io.sockets.sockets.get(socketId);
           if (socket) socket.join(groupId);
@@ -132,6 +135,7 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
 
       // Notify existing members
       io.to(groupId).emit('group:member_added', { groupId, userId });
+      io.to(groupId).emit('group:updated', groupId);
 
       res.json({ success: true });
     } catch (err: any) {
@@ -158,6 +162,7 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
 
       // Notify others in the group that the user left
       io.to(groupId).emit('group:member_left', { groupId, userId });
+      io.to(groupId).emit('group:updated', groupId);
 
       res.json({ success: true });
     } catch (err: any) {
@@ -206,6 +211,7 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
 
       // Notify remaining members
       io.to(groupId).emit('group:member_removed', { groupId, userId });
+      io.to(groupId).emit('group:updated', groupId);
 
       res.json({ success: true });
     } catch (err: any) {

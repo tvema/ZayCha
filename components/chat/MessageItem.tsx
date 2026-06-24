@@ -3,7 +3,7 @@
 import React, { useState, Fragment, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { motion } from 'motion/react';
-import { Check, CheckCheck, Clock, Forward, Reply, SmilePlus, MoreHorizontal, Edit2, Trash2, Bell, Pin, Lock, Ban, Download, Type } from 'lucide-react';
+import { Check, CheckCheck, Clock, Forward, Reply, SmilePlus, MoreHorizontal, Edit2, Trash2, Bell, Pin, Lock, Ban, Download, Type, Eye } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { User, Message, Group } from '@/types/chat';
 import { isOnlyEmojis } from '@/lib/chatUtils';
@@ -700,6 +700,18 @@ export function MessageItem({
                             </button>
                           )}
                         </Fragment>
+                      )}
+                      
+                      {msg.group_id && isMine && (
+                        <button 
+                          onClick={() => {
+                            window.dispatchEvent(new CustomEvent('show-message-viewers', { detail: { messageId: msg.id } }));
+                            setActiveDropdownId(null);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center gap-2 transition-colors"
+                        >
+                          <Eye size={16} /> Просмотревшие
+                        </button>
                       )}
 
                       {onSetReminder && (

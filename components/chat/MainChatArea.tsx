@@ -16,6 +16,7 @@ import ReminderModal from '@/components/chat/ReminderModal';
 import RemindersListModal from '@/components/chat/RemindersListModal';
 import { PinnedMessagesBar } from '@/components/chat/PinnedMessagesBar';
 import { ShareContactsModal } from '@/components/ShareContactsModal';
+import { MessageViewersModal } from '@/components/chat/MessageViewersModal';
 
 interface MainChatAreaProps {
   user: User;
@@ -155,8 +156,17 @@ export function MainChatArea({
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [showRemindersList, setShowRemindersList] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [viewersMessageId, setViewersMessageId] = useState<string | null>(null);
   const dragCounter = React.useRef(0);
   const { t } = useLanguage();
+
+  React.useEffect(() => {
+    const handleShowViewers = (e: any) => {
+      setViewersMessageId(e.detail.messageId);
+    };
+    window.addEventListener('show-message-viewers', handleShowViewers);
+    return () => window.removeEventListener('show-message-viewers', handleShowViewers);
+  }, []);
 
   // Handle message highlighting/navigation
   React.useEffect(() => {
@@ -500,6 +510,14 @@ export function MainChatArea({
             setShowRemindersList(false);
           }}
           onUnpinMessage={handleUnpinMessage}
+        />
+      )}
+
+      {viewersMessageId && (
+        <MessageViewersModal
+          isOpen={!!viewersMessageId}
+          onClose={() => setViewersMessageId(null)}
+          messageId={viewersMessageId}
         />
       )}
     </main>

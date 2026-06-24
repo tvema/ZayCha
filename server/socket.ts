@@ -431,6 +431,10 @@ export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<
       try {
         db.prepare('UPDATE group_members SET last_read_at = CURRENT_TIMESTAMP WHERE group_id = ? AND user_id = ?')
           .run(groupId, userId);
+        db.prepare(`
+          INSERT OR IGNORE INTO message_reads (message_id, user_id) 
+          SELECT id, ? FROM messages WHERE group_id = ? AND sender_id != ?
+        `).run(userId, groupId, userId);
         io.to(socket.id).emit('contact:updated');
       } catch (e) {
         console.error('Error updating group last_read_at', e);

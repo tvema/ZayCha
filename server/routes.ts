@@ -219,6 +219,22 @@ export function setupRoutes(server: express.Express, io: any, connectedUsers: Ma
     }
   });
 
+  server.get('/api/messages/:messageId/reads', authenticateToken, (req: any, res) => {
+    try {
+      const { messageId } = req.params;
+      const reads = db.prepare(`
+        SELECT r.read_at, u.id, u.username, u.first_name, u.last_name, u.avatar_url
+        FROM message_reads r
+        JOIN users u ON r.user_id = u.id
+        WHERE r.message_id = ?
+        ORDER BY r.read_at ASC
+      `).all(messageId);
+      res.json(reads);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   server.get('/api/messages/:contactId/media', authenticateToken, (req: any, res) => {
     try {
       const { contactId } = req.params;
