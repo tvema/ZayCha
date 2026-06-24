@@ -45,7 +45,7 @@ export function useChatData(
         }
       }
     } catch (err) {
-      console.error('Failed to fetch reminders:', err);
+      console.warn('Failed to fetch reminders:', err);
       if (retryCount < 3) {
         setTimeout(() => fetchReminders(retryCount + 1), 1000 * (retryCount + 1));
       }
@@ -70,7 +70,7 @@ export function useChatData(
         setPinnedMessages(decryptedPinned as any);
       }
     } catch (err) {
-      console.error('Failed to fetch pinned messages:', err);
+      console.warn('Failed to fetch pinned messages:', err);
     }
   }, [token]);
 
@@ -104,7 +104,7 @@ export function useChatData(
         setReminders(prev => [...prev, newReminder]);
       }
     } catch (err) {
-      console.error('Failed to set reminder:', err);
+      console.warn('Failed to set reminder:', err);
     }
   };
 
@@ -119,7 +119,7 @@ export function useChatData(
         setReminders(prev => prev.filter(r => r.id !== reminderId));
       }
     } catch (err) {
-      console.error('Failed to delete reminder:', err);
+      console.warn('Failed to delete reminder:', err);
     }
   };
 
@@ -143,7 +143,7 @@ export function useChatData(
         setReminders(prev => prev.map(r => r.id === reminderId ? updatedReminder : r));
       }
     } catch (err) {
-      console.error('Failed to edit reminder:', err);
+      console.warn('Failed to edit reminder:', err);
     }
   };
 
@@ -169,7 +169,7 @@ export function useChatData(
         ));
       }
     } catch (err) {
-      console.error('Failed to snooze reminder:', err);
+      console.warn('Failed to snooze reminder:', err);
     }
   };
 
@@ -186,7 +186,7 @@ export function useChatData(
         ));
       }
     } catch (err) {
-      console.error('Failed to dismiss reminder:', err);
+      console.warn('Failed to dismiss reminder:', err);
     }
   };
 
@@ -209,7 +209,7 @@ export function useChatData(
         fetchPinnedMessages(chatId);
       }
     } catch (err) {
-      console.error('Failed to pin message:', err);
+      console.warn('Failed to pin message:', err);
     }
   };
 
@@ -232,7 +232,7 @@ export function useChatData(
         setPinnedMessages(prev => prev.filter(p => p.message_id !== messageId));
       }
     } catch (err) {
-      console.error('Failed to unpin message:', err);
+      console.warn('Failed to unpin message:', err);
     }
   };
 

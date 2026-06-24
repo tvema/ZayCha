@@ -89,7 +89,7 @@ export function useSocketEvents({
             });
           }
         })
-        .catch(console.error);
+        .catch(console.warn);
       }
     });
 

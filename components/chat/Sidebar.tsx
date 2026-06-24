@@ -243,6 +243,9 @@ export function Sidebar({
     }
   };
 
+  const hasUnreadContacts = useMemo(() => contacts.some(c => (c.unread_count ?? 0) > 0), [contacts]);
+  const hasUnreadGroups = useMemo(() => groups.some(g => (g.unread_count ?? 0) > 0), [groups]);
+
   return (
     <aside className={`w-full md:w-80 min-w-0 min-h-0 bg-white dark:bg-neutral-900 border-r border-neutral-200 dark:border-neutral-800 flex flex-col shrink-0 z-20 ${((appView === 'messages' && (activeContact || activeGroup)) || (appView === 'feed' && selectedFeedUserId)) ? 'hidden md:flex' : 'flex'}`}>
       {/* User Header */}
@@ -322,20 +325,26 @@ export function Sidebar({
               setSidebarView('chats');
               if (setAppView) setAppView('messages');
             }}
-            className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded-lg transition-all ${sidebarView === 'chats' && appView !== 'feed' ? 'bg-white dark:bg-neutral-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}
+            className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded-lg transition-all ${sidebarView === 'chats' && appView !== 'feed' ? 'bg-white dark:bg-neutral-700 text-indigo-600 dark:text-indigo-400 shadow-sm relative' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 relative'}`}
           >
             <MessageSquare className="w-3.5 h-3.5" />
             {t.chat.chats || 'Чаты'}
+            {hasUnreadContacts && (sidebarView !== 'chats' || appView === 'feed') && (
+              <span className="absolute top-1 right-2 w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-sm"></span>
+            )}
           </button>
           <button
             onClick={() => {
               setSidebarView('groups');
               if (setAppView) setAppView('messages');
             }}
-            className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded-lg transition-all ${sidebarView === 'groups' && appView !== 'feed' ? 'bg-white dark:bg-neutral-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'}`}
+            className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded-lg transition-all ${sidebarView === 'groups' && appView !== 'feed' ? 'bg-white dark:bg-neutral-700 text-indigo-600 dark:text-indigo-400 shadow-sm relative' : 'text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 relative'}`}
           >
             <Users className="w-3.5 h-3.5" />
             {t.chat.groups || 'Группы'}
+            {hasUnreadGroups && (sidebarView !== 'groups' || appView === 'feed') && (
+              <span className="absolute top-1 right-2 w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-sm"></span>
+            )}
           </button>
           <button
             onClick={() => {
