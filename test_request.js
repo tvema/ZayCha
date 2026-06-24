@@ -1,10 +1,15 @@
-import http from 'http';
+// test_request.js
+import fetch from 'node-fetch';
 
-http.get('http://localhost:3000', (res) => {
-  console.log(`STATUS: ${res.statusCode}`);
-  let data = '';
-  res.on('data', chunk => data += chunk);
-  res.on('end', () => console.log('BODY LENGTH:', data.length));
-}).on('error', (e) => {
-  console.error(`Got error: ${e.message}`);
-});
+async function test() {
+  try {
+    // Generate token
+    const jwt = await import('jsonwebtoken');
+    const token = jwt.default.sign({ userId: '1' }, 'your-secret-key-here', { expiresIn: '1h' });
+    
+    // We don't have the actual user ID or JWT secret, but we can bypass or just run a direct DB query
+  } catch (e) {
+    console.error(e);
+  }
+}
+test();

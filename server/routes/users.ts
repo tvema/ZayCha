@@ -240,6 +240,7 @@ export function setupUserRoutes(server: express.Express, io: any, connectedUsers
   // 8. Get Contacts
   server.get('/api/contacts', authenticateToken, (req: any, res) => {
     try {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       let contacts: any[];
       try {
         contacts = db.prepare(`
@@ -314,6 +315,7 @@ export function setupUserRoutes(server: express.Express, io: any, connectedUsers
   // 8.2 Contact Circles
   server.get('/api/contact-circles', authenticateToken, (req: any, res) => {
     try {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       const circles = db.prepare('SELECT * FROM contact_circles WHERE user_id = ?').all(req.user.userId);
       const circlesWithMembers = circles.map((circle: any) => {
         const members = db.prepare('SELECT contact_id FROM contact_circle_members WHERE circle_id = ?').all(circle.id);

@@ -8,6 +8,7 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
   // 8.3 Get Groups
   server.get('/api/groups', authenticateToken, (req: any, res) => {
     try {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       const groups = db.prepare(`
         SELECT g.*, gm.role, gm.joined_at, gm.last_read_at, gm.encrypted_keys,
         (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) as member_count,
@@ -17,6 +18,7 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
         JOIN group_members gm ON g.id = gm.group_id
         WHERE gm.user_id = ?
       `).all(req.user.userId);
+      console.log('GET /api/groups result sample:', groups.length > 0 ? groups[0] : 'empty');
       res.json(groups);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -46,8 +48,9 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
         
         // Add creator as admin
         const creatorData = parsedMembers.find(m => m.id === creatorId);
-        db.prepare('INSERT INTO group_members (group_id, user_id, role, encrypted_keys) VALUES (?, ?, ?, ?)').run(
-          groupId, creatorId, 'admin', creatorData ? JSON.stringify({ '1': creatorData.encrypted_key }) : null
+        const nowIso = new Date().toISOString();
+        db.prepare('INSERT INTO group_members (group_id, user_id, role, encrypted_keys, last_read_at) VALUES (?, ?, ?, ?, ?)').run(
+          groupId, creatorId, 'admin', creatorData ? JSON.stringify({ '1': creatorData.encrypted_key }) : null, nowIso
         );
 
         // Make the creator's socket join the group room
@@ -64,8 +67,9 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
         // Add other members
         for (const member of parsedMembers) {
           if (member.id !== creatorId) {
-            db.prepare('INSERT INTO group_members (group_id, user_id, encrypted_keys) VALUES (?, ?, ?)').run(
-              groupId, member.id, JSON.stringify({ '1': member.encrypted_key })
+            const nowIso = new Date().toISOString();
+            db.prepare('INSERT INTO group_members (group_id, user_id, encrypted_keys, last_read_at) VALUES (?, ?, ?, ?)').run(
+              groupId, member.id, JSON.stringify({ '1': member.encrypted_key }), nowIso
             );
             
             // Notify other members via socket if online
@@ -75,7 +79,7 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
                 const socket = io.sockets.sockets.get(socketId);
                 if (socket) {
                   socket.join(groupId);
-                  io.to(socketId).emit('group:new', { id: groupId, name, description, avatar_url: avatarUrl, creator_id: creatorId });
+                  io.to(socketId).emit('group:new', { id: groupId, name, description, avatar_url: avatarUrl, creator_id: creatorId, member_count: parsedMembers.length });
                 }
               });
             }
@@ -118,11 +122,16 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
       }
 
       const keysJson = encrypted_key ? JSON.stringify({ [key_version || '1']: encrypted_key }) : null;
-      db.prepare('INSERT INTO group_members (group_id, user_id, encrypted_keys) VALUES (?, ?, ?)').run(groupId, userId, keysJson);
+      const nowIso = new Date().toISOString();
+      db.prepare('INSERT INTO group_members (group_id, user_id, encrypted_keys, last_read_at) VALUES (?, ?, ?, ?)').run(groupId, userId, keysJson, nowIso);
 
       // Notify the added user via socket if online
       const addedUserSockets = connectedUsers.get(userId);
-      const groupData = db.prepare('SELECT * FROM groups WHERE id = ?').get(groupId);
+      const groupData = db.prepare(`
+        SELECT g.*,
+        (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) as member_count
+        FROM groups g WHERE id = ?
+      `).get(groupId);
 
       if (addedUserSockets && groupData) {
         addedUserSockets.forEach(socketId => {
@@ -281,7 +290,11 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
       const updateStmt = db.prepare('UPDATE groups SET avatar_url = ? WHERE id = ?');
       updateStmt.run(avatarUrl, groupId);
       
-      const groupData = db.prepare('SELECT * FROM groups WHERE id = ?').get(groupId);
+      const groupData = db.prepare(`
+        SELECT g.*,
+        (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) as member_count
+        FROM groups g WHERE id = ?
+      `).get(groupId);
       
       // Notify members via websocket
       io.to(groupId).emit('group:avatar_updated', groupData);

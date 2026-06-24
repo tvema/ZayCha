@@ -429,8 +429,9 @@ export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<
       const { groupId } = data;
       if (!groupId) return;
       try {
-        db.prepare('UPDATE group_members SET last_read_at = CURRENT_TIMESTAMP WHERE group_id = ? AND user_id = ?')
-          .run(groupId, userId);
+        const nowIso = new Date().toISOString();
+        db.prepare('UPDATE group_members SET last_read_at = ? WHERE group_id = ? AND user_id = ?')
+          .run(nowIso, groupId, userId);
         db.prepare(`
           INSERT OR IGNORE INTO message_reads (message_id, user_id) 
           SELECT id, ? FROM messages WHERE group_id = ? AND sender_id != ?
