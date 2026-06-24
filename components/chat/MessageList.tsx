@@ -509,6 +509,17 @@ export function MessageList({
             }
           }
           isRestoring.current = false;
+          
+          // Re-evaluate atBottom after restore to prevent being stuck if we are physically at the bottom
+          if (container && chatId === currentChatId.current) {
+             const { scrollTop, scrollHeight, clientHeight } = container;
+             const atBottom = scrollHeight <= clientHeight || (scrollHeight - scrollTop - clientHeight < 50);
+             if (atBottom !== isAtBottomRef.current) {
+                isAtBottomRef.current = atBottom;
+                setIsAtBottom(atBottom);
+             }
+          }
+
           // Keep isFirstRenderOfChat true for a bit longer to ensure no animations during initial load
           setTimeout(() => {
             if (chatId === currentChatId.current) {
@@ -550,6 +561,14 @@ export function MessageList({
           
           setTimeout(() => {
              isRestoring.current = false;
+             if (container && chatId === currentChatId.current) {
+               const { scrollTop, scrollHeight, clientHeight } = container;
+               const atBottom = scrollHeight <= clientHeight || (scrollHeight - scrollTop - clientHeight < 50);
+               if (atBottom !== isAtBottomRef.current) {
+                 isAtBottomRef.current = atBottom;
+                 setIsAtBottom(atBottom);
+               }
+             }
           }, 30);
         }
       } else {
@@ -616,6 +635,14 @@ export function MessageList({
           
           setTimeout(() => {
             isRestoring.current = false;
+            if (container && chatId === currentChatId.current) {
+               const { scrollTop, scrollHeight, clientHeight } = container;
+               const atBottom = scrollHeight <= clientHeight || (scrollHeight - scrollTop - clientHeight < 50);
+               if (atBottom !== isAtBottomRef.current) {
+                 isAtBottomRef.current = atBottom;
+                 setIsAtBottom(atBottom);
+               }
+            }
           }, 50);
           return;
         }
