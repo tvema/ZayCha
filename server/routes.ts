@@ -170,10 +170,6 @@ export function setupRoutes(server: express.Express, io: any, connectedUsers: Ma
         params.push(limit);
         
         messages = db.prepare(query).all(...params);
-        
-        // Update last_read_at for group member
-        db.prepare('UPDATE group_members SET last_read_at = CURRENT_TIMESTAMP WHERE group_id = ? AND user_id = ?')
-          .run(contactId, req.user.userId);
       } else {
         let query = `
           SELECT m.*, mt.thumbnail as external_thumbnail,

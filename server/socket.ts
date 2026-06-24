@@ -427,17 +427,23 @@ export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<
 
     socket.on('group:read', (data) => {
       const { groupId } = data;
+      console.log(`[DEBUG] group:read received for group ${groupId} by user ${userId}`);
       if (!groupId) return;
       try {
         const nowIso = new Date().toISOString();
-        db.prepare('UPDATE group_members SET last_read_at = ? WHERE group_id = ? AND user_id = ?')
+        db.exec('CREATE TABLE IF NOT EXISTS debug_logs (log TEXT);');
+        db.prepare('INSERT INTO debug_logs (log) VALUES (?)').run(JSON.stringify({event: 'group:read', groupId, userId, nowIso}));
+        const updateResult = db.prepare('UPDATE group_members SET last_read_at = ? WHERE group_id = ? AND user_id = ?')
           .run(nowIso, groupId, userId);
+        db.prepare('INSERT INTO debug_logs (log) VALUES (?)').run(JSON.stringify({event: 'group:read_success', changes: updateResult.changes}));
+        console.log(`[DEBUG] group:read update result:`, updateResult);
         db.prepare(`
           INSERT OR IGNORE INTO message_reads (message_id, user_id) 
           SELECT id, ? FROM messages WHERE group_id = ? AND sender_id != ?
         `).run(userId, groupId, userId);
         io.to(socket.id).emit('contact:updated');
-      } catch (e) {
+      } catch (e: any) {
+        db.prepare('INSERT INTO debug_logs (log) VALUES (?)').run(JSON.stringify({event: 'group:read_error', error: e.message}));
         console.error('Error updating group last_read_at', e);
       }
     });
