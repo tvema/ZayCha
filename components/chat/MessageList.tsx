@@ -137,11 +137,6 @@ export function MessageList({
           clearBadgeTimeoutRef.current = null;
         }, unreadClearDelayMs);
       }
-    } else if (!isAtBottom) {
-      if (clearBadgeTimeoutRef.current) {
-        clearTimeout(clearBadgeTimeoutRef.current);
-        clearBadgeTimeoutRef.current = null;
-      }
     }
     
     return () => {
@@ -561,6 +556,7 @@ export function MessageList({
             setHasNewMessages(false);
             setUnreadBadgeId(null);
             firstUnreadMessageIdRef.current = null;
+            unreadCountOnEnterRef.current = 0;
             if (clearBadgeTimeoutRef.current) {
               clearTimeout(clearBadgeTimeoutRef.current);
               clearBadgeTimeoutRef.current = null;
@@ -601,7 +597,7 @@ export function MessageList({
       if (!container || container.scrollHeight === 0 || container.clientHeight === 0) return;
 
       // If user hasn't explicitly scrolled and there is an unread message boundary, keep it pinned
-      if (!hasUserScrolledRef.current && firstUnreadMessageIdRef.current) {
+      if (!hasUserScrolledRef.current && firstUnreadMessageIdRef.current && !isAtBottomRef.current) {
         const el = document.getElementById(`message-${firstUnreadMessageIdRef.current}`);
         if (el) {
           isRestoring.current = true;
