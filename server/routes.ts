@@ -857,6 +857,30 @@ export function setupRoutes(server: express.Express, io: any, connectedUsers: Ma
     }
   });
 
+  server.get('/api/fix_all_read', authenticateToken, (req: any, res) => {
+    try {
+      const userId = req.user.userId;
+      const nowIso = new Date().toISOString();
+      const result = db.prepare('UPDATE group_members SET last_read_at = ? WHERE user_id = ?').run(nowIso, userId);
+      res.json({ success: true, updated: result.changes });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  server.get('/api/debug_unread', (req, res) => {
+    try {
+      const groups = db.prepare(`SELECT g.id, gm.user_id, gm.last_read_at, 
+        (SELECT COUNT(*) FROM messages m WHERE m.group_id = g.id) as total_msgs,
+        (SELECT MAX(created_at) FROM messages m WHERE m.group_id = g.id) as max_msg_time,
+        (SELECT COUNT(*) FROM messages m WHERE m.group_id = g.id AND m.created_at > COALESCE(gm.last_read_at, '1970-01-01')) as unread_count
+        FROM groups g JOIN group_members gm ON g.id = gm.group_id`).all();
+      res.json(groups);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
  // Fallback for Share Target if Service Worker is not active or hasn't intercepted the POST
   server.post('/share-target', upload.any(), (req, res) => {
     let redirectUrl = '/?shared=true';

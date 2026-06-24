@@ -18,7 +18,7 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
         JOIN group_members gm ON g.id = gm.group_id
         WHERE gm.user_id = ?
       `).all(req.user.userId);
-      console.log('GET /api/groups result sample:', groups.length > 0 ? groups[0] : 'empty');
+      console.log('GET /api/groups result sample:', groups.length > 0 ? { ...groups[0], last_read_at: groups[0].last_read_at, unread_count: groups[0].unread_count } : 'empty');
       res.json(groups);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
