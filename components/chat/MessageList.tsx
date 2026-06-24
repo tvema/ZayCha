@@ -137,6 +137,11 @@ export function MessageList({
           clearBadgeTimeoutRef.current = null;
         }, unreadClearDelayMs);
       }
+    } else if (!isAtBottom) {
+      if (clearBadgeTimeoutRef.current) {
+        clearTimeout(clearBadgeTimeoutRef.current);
+        clearBadgeTimeoutRef.current = null;
+      }
     }
     
     return () => {
@@ -564,8 +569,8 @@ export function MessageList({
           }
           // Use a small delay to ensure DOM is updated
           setTimeout(() => scrollToBottom(isMine ? 'smooth' : 'auto'), 50);
-          if (!isMine && markChatAsRead) {
-            markChatAsRead(); // Mark immediately if they are seeing it arrive
+          if (markChatAsRead) {
+            markChatAsRead(); // Mark immediately if they are seeing it arrive or sending a message
           }
         } else {
           setHasNewMessages(true);
