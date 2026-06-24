@@ -105,10 +105,12 @@ export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<
         for (const senderId in bySender) {
           const ids = bySender[senderId];
           const placeholders = ids.map(() => '?').join(',');
-          const updated = db.prepare(`UPDATE messages SET status = 'delivered' WHERE id IN (${placeholders}) AND status = 'sent' RETURNING id`).all(...ids) as { id: string }[];
+          const unreadMessages = db.prepare(`SELECT id FROM messages WHERE id IN (${placeholders}) AND status = 'sent'`).all(...ids) as { id: string }[];
           
-          if (updated.length > 0) {
-            const updatedIds = updated.map(u => u.id);
+          if (unreadMessages.length > 0) {
+            const updatedIds = unreadMessages.map(u => u.id);
+            db.prepare(`UPDATE messages SET status = 'delivered' WHERE id IN (${placeholders}) AND status = 'sent'`).run(...ids);
+            
             const senderSockets = connectedUsers.get(senderId);
             if (senderSockets) {
               senderSockets.forEach(socketId => io.to(socketId).emit('message:status_update', { messageIds: updatedIds, status: 'delivered' }));
@@ -361,10 +363,12 @@ export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<
       
       try {
         const placeholders = messageIds.map(() => '?').join(',');
-        const updated = db.prepare(`UPDATE messages SET status = 'delivered' WHERE id IN (${placeholders}) AND status = 'sent' RETURNING id`).all(...messageIds) as { id: string }[];
+        const unreadMessages = db.prepare(`SELECT id FROM messages WHERE id IN (${placeholders}) AND status = 'sent'`).all(...messageIds) as { id: string }[];
         
-        if (updated.length > 0) {
-          const updatedIds = updated.map(u => u.id);
+        if (unreadMessages.length > 0) {
+          const updatedIds = unreadMessages.map(u => u.id);
+          db.prepare(`UPDATE messages SET status = 'delivered' WHERE id IN (${placeholders}) AND status = 'sent'`).run(...messageIds);
+          
           const senderSockets = connectedUsers.get(senderId);
           if (senderSockets) {
             senderSockets.forEach(socketId => io.to(socketId).emit('message:status_update', { messageIds: updatedIds, status: 'delivered' }));
@@ -384,10 +388,12 @@ export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<
       
       try {
         const placeholders = messageIds.map(() => '?').join(',');
-        const updated = db.prepare(`UPDATE messages SET status = 'read' WHERE id IN (${placeholders}) AND status != 'read' RETURNING id`).all(...messageIds) as { id: string }[];
+        const unreadMessages = db.prepare(`SELECT id FROM messages WHERE id IN (${placeholders}) AND status != 'read'`).all(...messageIds) as { id: string }[];
         
-        if (updated.length > 0) {
-          const updatedIds = updated.map(u => u.id);
+        if (unreadMessages.length > 0) {
+          const updatedIds = unreadMessages.map(u => u.id);
+          db.prepare(`UPDATE messages SET status = 'read' WHERE id IN (${placeholders}) AND status != 'read'`).run(...messageIds);
+          
           const senderSockets = connectedUsers.get(senderId);
           if (senderSockets) {
             senderSockets.forEach(socketId => io.to(socketId).emit('message:status_update', { messageIds: updatedIds, status: 'read' }));
@@ -402,9 +408,11 @@ export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<
       const { contactId } = data;
       if (!contactId) return;
       try {
-        const updated = db.prepare(`UPDATE messages SET status = 'read' WHERE sender_id = ? AND receiver_id = ? AND status != 'read' RETURNING id`).all(contactId, userId) as { id: string }[];
-        if (updated.length > 0) {
-          const updatedIds = updated.map(u => u.id);
+        const unreadMessages = db.prepare(`SELECT id FROM messages WHERE sender_id = ? AND receiver_id = ? AND status != 'read'`).all(contactId, userId) as { id: string }[];
+        if (unreadMessages.length > 0) {
+          const updatedIds = unreadMessages.map(u => u.id);
+          db.prepare(`UPDATE messages SET status = 'read' WHERE sender_id = ? AND receiver_id = ? AND status != 'read'`).run(contactId, userId);
+          
           const senderSockets = connectedUsers.get(contactId);
           if (senderSockets) {
             senderSockets.forEach(socketId => io.to(socketId).emit('message:status_update', { messageIds: updatedIds, status: 'read' }));
