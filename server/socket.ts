@@ -410,6 +410,8 @@ export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<
             senderSockets.forEach(socketId => io.to(socketId).emit('message:status_update', { messageIds: updatedIds, status: 'read' }));
           }
         }
+        // Always tell this client to re-sync contacts so unread count accurately becomes 0 in case of race conditions
+        io.to(socket.id).emit('contact:updated');
       } catch (e) {
         console.error('Error updating all messages read status', e);
       }
@@ -421,6 +423,7 @@ export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<
       try {
         db.prepare('UPDATE group_members SET last_read_at = CURRENT_TIMESTAMP WHERE group_id = ? AND user_id = ?')
           .run(groupId, userId);
+        io.to(socket.id).emit('contact:updated');
       } catch (e) {
         console.error('Error updating group last_read_at', e);
       }

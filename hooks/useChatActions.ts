@@ -317,6 +317,12 @@ export function useChatActions(token: string | null, activeContact: User | null,
           is_media: !!file ? 1 : 0
         } as any]);
 
+        if (activeContact) {
+          socket.emit('contact:read', { contactId: activeContact.id });
+        } else if (activeGroup) {
+          socket.emit('group:read', { groupId: activeGroup.id });
+        }
+
         socket.emit('message:send', {
           id: tempId,
           receiverId: activeContact?.id || null,
