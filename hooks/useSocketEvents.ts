@@ -156,6 +156,10 @@ export function useSocketEvents({
           const index = prev.findIndex(m => m.id === decryptedMsg.id);
           if (index !== -1) {
             const next = [...prev];
+            const existingStatus = next[index].status;
+            if ((existingStatus === 'delivered' || existingStatus === 'read') && decryptedMsg.status === 'sent') {
+              decryptedMsg.status = existingStatus;
+            }
             next[index] = decryptedMsg;
             return next;
           }
@@ -174,6 +178,10 @@ export function useSocketEvents({
             const index = cached.findIndex((m: Message) => m.id === decryptedMsg.id);
             if (index !== -1) {
               const nextCached = [...cached];
+              const existingStatus = nextCached[index].status;
+              if ((existingStatus === 'delivered' || existingStatus === 'read') && decryptedMsg.status === 'sent') {
+                decryptedMsg.status = existingStatus;
+              }
               nextCached[index] = decryptedMsg;
               setCachedMessages(targetId, nextCached);
             } else {
