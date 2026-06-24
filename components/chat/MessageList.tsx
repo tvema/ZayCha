@@ -95,7 +95,7 @@ export function MessageList({
   const { t, language } = useLanguage();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [hasNewMessages, setHasNewMessages] = useState(false);
-  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [isAtBottom, setIsAtBottom] = useState(false);
   const isAtBottomRef = useRef(isAtBottom);
   const [unreadBadgeId, setUnreadBadgeId] = useState<string | null>(null);
   const [prevChatId, setPrevChatId] = useState<string | null>(null);
@@ -126,7 +126,7 @@ export function MessageList({
 
   useEffect(() => {
     if (isAtBottom && (hasNewMessages || unreadBadgeId)) {
-      if (markChatAsReadRef.current && hasNewMessages) markChatAsReadRef.current(); // Mark read immediately in DB/sidebar
+      if (markChatAsReadRef.current) markChatAsReadRef.current(); // Mark read immediately in DB/sidebar
       
       if (!clearBadgeTimeoutRef.current) {
         clearBadgeTimeoutRef.current = setTimeout(() => {
