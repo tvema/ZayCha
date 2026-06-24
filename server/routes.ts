@@ -873,7 +873,7 @@ export function setupRoutes(server: express.Express, io: any, connectedUsers: Ma
       const groups = db.prepare(`SELECT g.id, gm.user_id, gm.last_read_at, 
         (SELECT COUNT(*) FROM messages m WHERE m.group_id = g.id) as total_msgs,
         (SELECT MAX(created_at) FROM messages m WHERE m.group_id = g.id) as max_msg_time,
-        (SELECT COUNT(*) FROM messages m WHERE m.group_id = g.id AND m.created_at > COALESCE(gm.last_read_at, '1970-01-01')) as unread_count
+        (SELECT COUNT(*) FROM messages m WHERE m.group_id = g.id AND datetime(m.created_at) > datetime(COALESCE(gm.last_read_at, '1970-01-01'))) as unread_count
         FROM groups g JOIN group_members gm ON g.id = gm.group_id`).all();
       res.json(groups);
     } catch (err: any) {

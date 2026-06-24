@@ -12,13 +12,13 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
       const groups = db.prepare(`
         SELECT g.*, gm.role, gm.joined_at, gm.last_read_at, gm.encrypted_keys,
         (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) as member_count,
-        (SELECT COUNT(*) FROM messages m WHERE m.group_id = g.id AND m.created_at > COALESCE(gm.last_read_at, '1970-01-01')) as unread_count,
+        (SELECT COUNT(*) FROM messages m WHERE m.group_id = g.id AND datetime(m.created_at) > datetime(COALESCE(gm.last_read_at, '1970-01-01'))) as unread_count,
         (SELECT MAX(created_at) FROM messages m WHERE m.group_id = g.id) as last_message_timestamp
         FROM groups g
         JOIN group_members gm ON g.id = gm.group_id
         WHERE gm.user_id = ?
       `).all(req.user.userId);
-      console.log('GET /api/groups result sample:', groups.length > 0 ? { ...groups[0], last_read_at: groups[0].last_read_at, unread_count: groups[0].unread_count } : 'empty');
+      console.log('GET /api/groups result sample:', groups.length > 0 ? groups[0] : 'empty');
       res.json(groups);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
