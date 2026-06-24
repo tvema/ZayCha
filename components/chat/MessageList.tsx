@@ -125,8 +125,8 @@ export function MessageList({
   const unreadClearDelayMs = Number(process.env.NEXT_PUBLIC_UNREAD_CLEAR_DELAY_MS) || 3000;
 
   useEffect(() => {
-    if (isAtBottom && hasNewMessages) {
-      if (markChatAsReadRef.current) markChatAsReadRef.current(); // Mark read immediately in DB/sidebar
+    if (isAtBottom && (hasNewMessages || unreadBadgeId)) {
+      if (markChatAsReadRef.current && hasNewMessages) markChatAsReadRef.current(); // Mark read immediately in DB/sidebar
       
       if (!clearBadgeTimeoutRef.current) {
         clearBadgeTimeoutRef.current = setTimeout(() => {
@@ -137,18 +137,13 @@ export function MessageList({
           clearBadgeTimeoutRef.current = null;
         }, unreadClearDelayMs);
       }
-    } else if (!isAtBottom) {
-      if (clearBadgeTimeoutRef.current) {
-        clearTimeout(clearBadgeTimeoutRef.current);
-        clearBadgeTimeoutRef.current = null;
-      }
     }
     
     return () => {
       // Intentionally NOT clearing the timeout here so it continues ticking even if dependencies change,
       // UNLESS the component unmounts. For unmount cleanup, see the other useEffect.
     };
-  }, [isAtBottom, hasNewMessages, unreadClearDelayMs]);
+  }, [isAtBottom, hasNewMessages, unreadBadgeId, unreadClearDelayMs]);
 
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties | undefined>(undefined);
