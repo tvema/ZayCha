@@ -59,6 +59,7 @@ async function handlePushEvent(event) {
     },
     vibrate: data.requireInteraction ? [500, 200, 500, 200, 500, 200, 500] : [200, 100, 200],
     requireInteraction: data.requireInteraction || false,
+    renotify: data.renotify || false,
     tag: data.tag || undefined,
     actions: data.actions || []
   };

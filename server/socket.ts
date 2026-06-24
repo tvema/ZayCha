@@ -5,8 +5,14 @@ import db from './db';
 import { JWT_SECRET } from './auth';
 import { sendPushNotification } from './push';
 
-const activeCalls = new Map<string, { requesterId: string, audioOnly: boolean, startedAt: number }>();
+const activeCalls = new Map<string, { requesterId: string, audioOnly: boolean, startedAt: number, interval?: NodeJS.Timeout }>();
 const userVisibility = new Map<string, Set<string>>(); // userId -> Set of socketIds that are visible
+
+const deleteActiveCall = (id: string) => {
+  const call = activeCalls.get(id);
+  if (call?.interval) clearInterval(call.interval);
+  activeCalls.delete(id);
+};
 
 export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<string>>) {
   io.use((socket, next) => {
@@ -65,7 +71,7 @@ export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<
             audioOnly: inboundCall.audioOnly 
           });
         } else {
-          activeCalls.delete(userId);
+          deleteActiveCall(userId);
           socket.emit('webrtc:call_idle');
         }
       } else {
@@ -552,39 +558,64 @@ export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<
         console.error('Failed to check contact status for call:', e);
       }
 
+      const existingCall = activeCalls.get(data.targetId);
+      if (existingCall && existingCall.interval) {
+        clearInterval(existingCall.interval);
+      }
+
+      const sendCallPushAndEvent = () => {
+        const targetSockets = connectedUsers.get(data.targetId);
+        if (targetSockets && targetSockets.size > 0) {
+          targetSockets.forEach(socketId => io.to(socketId).emit('webrtc:call_request', { requesterId: userId, audioOnly: data.audioOnly }));
+        }
+        
+        try {
+          if (data.targetId !== userId) {
+            const sender = db.prepare('SELECT username FROM users WHERE id = ?').get(userId) as any;
+            sendPushNotification(data.targetId, {
+              title: 'Входящий звонок 📞',
+              body: `Звонит ${sender?.username || 'Скрытый контакт'}`,
+              url: `/?chat=${userId}&call=true`,
+              requireInteraction: true,
+              renotify: true,
+              tag: 'incoming_call_' + userId,
+              actions: [
+                { action: 'reject', title: 'Отклонить', icon: '/icons/phone-off.png' }
+              ]
+            });
+          }
+        } catch (e) {
+          console.error('Failed to send call push notification:', e);
+        }
+      };
+
+      // Initial push and event
+      sendCallPushAndEvent();
+
+      // Periodic push every 5 seconds, up to 12 times (60 seconds)
+      let ticks = 0;
+      const intervalId = setInterval(() => {
+        ticks++;
+        if (ticks >= 12) {
+          const call = activeCalls.get(data.targetId);
+          if (call && call.interval === intervalId) {
+            deleteActiveCall(data.targetId);
+          }
+          return;
+        }
+        sendCallPushAndEvent();
+      }, 5000);
+
       activeCalls.set(data.targetId, { 
         requesterId: userId, 
         audioOnly: data.audioOnly,
-        startedAt: Date.now()
+        startedAt: Date.now(),
+        interval: intervalId
       });
-
-      const targetSockets = connectedUsers.get(data.targetId);
-      if (targetSockets && targetSockets.size > 0) {
-        targetSockets.forEach(socketId => io.to(socketId).emit('webrtc:call_request', { requesterId: userId, audioOnly: data.audioOnly }));
-      }
-      
-      try {
-        if (data.targetId !== userId) {
-          const sender = db.prepare('SELECT username FROM users WHERE id = ?').get(userId) as any;
-          sendPushNotification(data.targetId, {
-            title: 'Входящий звонок 📞',
-            body: `Звонит ${sender?.username || 'Скрытый контакт'}`,
-            url: `/?chat=${userId}&call=true`,
-            requireInteraction: true,
-            renotify: true,
-            tag: 'incoming_call_' + userId,
-            actions: [
-              { action: 'reject', title: 'Отклонить', icon: '/icons/phone-off.png' }
-            ]
-          });
-        }
-      } catch (e) {
-        console.error('Failed to send call push notification:', e);
-      }
     });
 
     socket.on('webrtc:call_accept', (data) => {
-      activeCalls.delete(userId);
+      deleteActiveCall(userId);
       const targetSockets = connectedUsers.get(data.targetId);
       if (targetSockets) {
         targetSockets.forEach(socketId => io.to(socketId).emit('webrtc:call_accept', { accepterId: userId }));
@@ -608,7 +639,7 @@ export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<
     });
 
     socket.on('webrtc:call_reject', (data) => {
-      activeCalls.delete(userId);
+      deleteActiveCall(userId);
       const targetSockets = connectedUsers.get(data.targetId);
       if (targetSockets) {
         targetSockets.forEach(socketId => io.to(socketId).emit('webrtc:call_reject', { rejecterId: userId }));
@@ -632,8 +663,8 @@ export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<
     });
 
     socket.on('webrtc:call_end', (data) => {
-      activeCalls.delete(userId);
-      activeCalls.delete(data.targetId);
+      deleteActiveCall(userId);
+      deleteActiveCall(data.targetId);
       const targetSockets = connectedUsers.get(data.targetId);
       if (targetSockets) {
         targetSockets.forEach(socketId => io.to(socketId).emit('webrtc:call_end', { enderId: userId }));
@@ -690,7 +721,7 @@ export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<
             let cleanedCount = 0;
             for (const [targetId, call] of activeCalls.entries()) {
               if (call.requesterId === userId) {
-                activeCalls.delete(targetId);
+                deleteActiveCall(targetId);
                 cleanedCount++;
                 const targetSockets = connectedUsers.get(targetId);
                 if (targetSockets) {
@@ -702,7 +733,7 @@ export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<
             // Also check if this user was being called (target)
             const inboundCall = activeCalls.get(userId);
             if (inboundCall) {
-               activeCalls.delete(userId);
+               deleteActiveCall(userId);
                cleanedCount++;
                const requesterSockets = connectedUsers.get(inboundCall.requesterId);
                if (requesterSockets) {
