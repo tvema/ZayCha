@@ -202,6 +202,11 @@ export function initializeDatabase(db: Database) {
       message_id TEXT PRIMARY KEY,
       thumbnail TEXT
     );
+    CREATE INDEX IF NOT EXISTS idx_messages_sender_receiver ON messages(sender_id, receiver_id);
+    CREATE INDEX IF NOT EXISTS idx_messages_group_id ON messages(group_id);
+    CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
+    CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id ON push_subscriptions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_group_members_user_id ON group_members(user_id);
   `);
 
   console.log('Checking for migrations...');

@@ -429,14 +429,18 @@ export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<
       const { groupId } = data;
       if (!groupId) return;
       try {
+        const lastRead = db.prepare('SELECT last_read_at FROM group_members WHERE group_id = ? AND user_id = ?').get(groupId, userId) as any;
+        const lastReadTime = lastRead?.last_read_at || '1970-01-01';
+
         const nowIso = new Date().toISOString();
         db.prepare('UPDATE group_members SET last_read_at = ? WHERE group_id = ? AND user_id = ?')
           .run(nowIso, groupId, userId);
         
         db.prepare(`
           INSERT OR IGNORE INTO message_reads (message_id, user_id) 
-          SELECT id, ? FROM messages WHERE group_id = ? AND sender_id != ?
-        `).run(userId, groupId, userId);
+          SELECT id, ? FROM messages 
+          WHERE group_id = ? AND sender_id != ? AND datetime(created_at) > datetime(?)
+        `).run(userId, groupId, userId, lastReadTime);
         io.to(socket.id).emit('contact:updated');
       } catch (e: any) {
         console.error('Error updating group last_read_at', e);
