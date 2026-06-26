@@ -47,10 +47,17 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
         db.prepare('INSERT INTO groups (id, name, description, avatar_url, creator_id) VALUES (?, ?, ?, ?, ?)').run(groupId, name, description, avatarUrl, creatorId);
         
         // Add creator as admin
-        const creatorData = parsedMembers.find(m => m.id === creatorId);
         const nowIso = new Date().toISOString();
+        let creatorKeysJson = null;
+        if (req.body.encrypted_keys) {
+          creatorKeysJson = req.body.encrypted_keys;
+        } else if (members) {
+          const creatorData = parsedMembers.find(m => m.id === creatorId);
+          creatorKeysJson = creatorData ? JSON.stringify({ '1': creatorData.encrypted_key }) : null;
+        }
+        
         db.prepare('INSERT INTO group_members (group_id, user_id, role, encrypted_keys, last_read_at) VALUES (?, ?, ?, ?, ?)').run(
-          groupId, creatorId, 'admin', creatorData ? JSON.stringify({ '1': creatorData.encrypted_key }) : null, nowIso
+          groupId, creatorId, 'admin', creatorKeysJson, nowIso
         );
 
         // Make the creator's socket join the group room
@@ -110,7 +117,7 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
   server.post('/api/groups/:groupId/members', authenticateToken, (req: any, res) => {
     try {
       const { groupId } = req.params;
-      const { userId, encrypted_key, key_version } = req.body;
+      const { userId, encrypted_key, key_version, encrypted_keys } = req.body;
       
       // Check if current user is admin
       const member = db.prepare('SELECT role FROM group_members WHERE group_id = ? AND user_id = ?').get(groupId, req.user.userId) as any;
@@ -132,7 +139,13 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
          return res.status(403).json({ error: 'Cannot add this user to the group due to blacklist settings.' });
       }
 
-      const keysJson = encrypted_key ? JSON.stringify({ [key_version || '1']: encrypted_key }) : null;
+      let keysJson = null;
+      if (encrypted_keys) {
+        keysJson = typeof encrypted_keys === 'string' ? encrypted_keys : JSON.stringify(encrypted_keys);
+      } else if (encrypted_key) {
+        keysJson = JSON.stringify({ [key_version || '1']: encrypted_key });
+      }
+      
       const nowIso = new Date().toISOString();
       db.prepare('INSERT INTO group_members (group_id, user_id, encrypted_keys, last_read_at) VALUES (?, ?, ?, ?)').run(groupId, userId, keysJson, nowIso);
 
