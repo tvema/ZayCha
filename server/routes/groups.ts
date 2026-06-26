@@ -66,7 +66,7 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
           creatorSockets.forEach(socketId => {
             const socket = io.sockets.sockets.get(socketId);
             if (socket) {
-              socket.join(groupId);
+              socket.join(`group:${groupId}`);
             }
           });
         }
@@ -85,7 +85,7 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
               mSockets.forEach(socketId => {
                 const socket = io.sockets.sockets.get(socketId);
                 if (socket) {
-                  socket.join(groupId);
+                  socket.join(`group:${groupId}`);
                   io.to(socketId).emit('group:new', { id: groupId, name, description, avatar_url: avatarUrl, creator_id: creatorId, member_count: parsedMembers.length });
                 }
               });
@@ -162,13 +162,13 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
           io.to(socketId).emit('group:new', groupData); 
           // Make the added user's socket join the group room
           const socket = io.sockets.sockets.get(socketId);
-          if (socket) socket.join(groupId);
+          if (socket) socket.join(`group:${groupId}`);
         });
       }
 
       // Notify existing members
-      io.to(groupId).emit('group:member_added', { groupId, userId });
-      io.to(groupId).emit('group:updated', groupId);
+      io.to(`group:${groupId}`).emit('group:member_added', { groupId, userId });
+      io.to(`group:${groupId}`).emit('group:updated', groupId);
 
       res.json({ success: true });
     } catch (err: any) {
@@ -194,8 +194,8 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
       db.prepare('DELETE FROM group_members WHERE group_id = ? AND user_id = ?').run(groupId, userId);
 
       // Notify others in the group that the user left
-      io.to(groupId).emit('group:member_left', { groupId, userId });
-      io.to(groupId).emit('group:updated', groupId);
+      io.to(`group:${groupId}`).emit('group:member_left', { groupId, userId });
+      io.to(`group:${groupId}`).emit('group:updated', groupId);
 
       res.json({ success: true });
     } catch (err: any) {
@@ -243,8 +243,8 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
       }
 
       // Notify remaining members
-      io.to(groupId).emit('group:member_removed', { groupId, userId });
-      io.to(groupId).emit('group:updated', groupId);
+      io.to(`group:${groupId}`).emit('group:member_removed', { groupId, userId });
+      io.to(`group:${groupId}`).emit('group:updated', groupId);
 
       res.json({ success: true });
     } catch (err: any) {
@@ -266,7 +266,7 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
 
       db.prepare('UPDATE group_members SET role = ? WHERE group_id = ? AND user_id = ?').run(role, groupId, userId);
       
-      io.to(groupId).emit('group:role_updated', { groupId, userId, role });
+      io.to(`group:${groupId}`).emit('group:role_updated', { groupId, userId, role });
 
       res.json({ success: true });
     } catch (err: any) {
@@ -291,7 +291,7 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
        })();
  
        // Notify all members
-       io.to(groupId).emit('group:deleted', { groupId });
+       io.to(`group:${groupId}`).emit('group:deleted', { groupId });
  
        res.json({ success: true });
     } catch (err: any) {
@@ -321,7 +321,7 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
       `).get(groupId);
       
       // Notify members via websocket
-      io.to(groupId).emit('group:avatar_updated', groupData);
+      io.to(`group:${groupId}`).emit('group:avatar_updated', groupData);
 
       // We should probably emit a system message into the chat as well, but for now just updating struct
       // ...
