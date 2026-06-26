@@ -88,7 +88,18 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
       });
       
       createGroupTransaction();
-      res.json({ id: groupId, name, description, avatarUrl });
+      
+      const newGroup = db.prepare(`
+        SELECT g.*, gm.role, gm.joined_at, gm.last_read_at, gm.encrypted_keys,
+        (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) as member_count,
+        (SELECT COUNT(*) FROM messages m WHERE m.group_id = g.id AND datetime(m.created_at) > datetime(COALESCE(gm.last_read_at, '1970-01-01'))) as unread_count,
+        (SELECT MAX(created_at) FROM messages m WHERE m.group_id = g.id) as last_message_timestamp
+        FROM groups g
+        JOIN group_members gm ON g.id = gm.group_id
+        WHERE g.id = ? AND gm.user_id = ?
+      `).get(groupId, creatorId);
+
+      res.json(newGroup);
     } catch (err: any) {
       console.error(err);
       res.status(500).json({ error: err.message });

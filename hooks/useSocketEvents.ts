@@ -330,10 +330,7 @@ export function useSocketEvents({
     });
 
     socket.on('group:new', (newGroup: Group) => {
-      setGroups(prev => {
-        if (prev.find(g => g.id === newGroup.id)) return prev;
-        return [...prev, newGroup];
-      });
+      fetchGroups();
       socket.emit('group:join', { groupId: newGroup.id });
     });
 
