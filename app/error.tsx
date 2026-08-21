@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useLanguage } from '@/components/LanguageProvider';
 
 export default function Error({
   error,

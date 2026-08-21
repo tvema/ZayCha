@@ -1,4 +1,4 @@
-export default function NotFound() {
+export default function NotFoundCatchAll() {
   return (
     <div className="flex h-[100dvh] items-center justify-center bg-neutral-100 dark:bg-neutral-900">
       <div className="text-center">
@@ -6,5 +6,5 @@ export default function NotFound() {
         <p className="text-neutral-600 dark:text-neutral-400">Страница не найдена</p>
       </div>
     </div>
-  );
+  )
 }
