@@ -1,3 +1,7 @@
+'use client';
+
+import { useLanguage } from '@/components/LanguageProvider';
+
 export default function NotFound() {
   return (
     <div className="flex h-[100dvh] items-center justify-center bg-neutral-100 dark:bg-neutral-900">

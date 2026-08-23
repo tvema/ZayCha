@@ -203,20 +203,10 @@ export function initializeDatabase(db: Database) {
       thumbnail TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_messages_sender_receiver ON messages(sender_id, receiver_id);
-    CREATE INDEX IF NOT EXISTS idx_messages_receiver_sender ON messages(receiver_id, sender_id);
-    CREATE INDEX IF NOT EXISTS idx_messages_group_id_created_at ON messages(group_id, created_at);
-    CREATE INDEX IF NOT EXISTS idx_messages_status ON messages(status);
     CREATE INDEX IF NOT EXISTS idx_messages_group_id ON messages(group_id);
     CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
     CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id ON push_subscriptions(user_id);
     CREATE INDEX IF NOT EXISTS idx_group_members_user_id ON group_members(user_id);
-    CREATE INDEX IF NOT EXISTS idx_group_members_group_id ON group_members(group_id);
-    CREATE INDEX IF NOT EXISTS idx_contacts_user_id ON contacts(user_id);
-    CREATE INDEX IF NOT EXISTS idx_contacts_contact_id ON contacts(contact_id);
-    CREATE INDEX IF NOT EXISTS idx_feed_likes_post_id ON feed_likes(post_id);
-    CREATE INDEX IF NOT EXISTS idx_feed_comments_post_id ON feed_comments(post_id);
-    CREATE INDEX IF NOT EXISTS idx_feed_views_post_id ON feed_views(post_id);
-    CREATE INDEX IF NOT EXISTS idx_feed_posts_expires_at ON feed_posts(expires_at);
   `);
 
   console.log('Checking for migrations...');
