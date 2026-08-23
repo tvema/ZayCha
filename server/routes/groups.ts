@@ -11,13 +11,31 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       const groups = db.prepare(`
         SELECT g.*, gm.role, gm.joined_at, gm.last_read_at, gm.encrypted_keys,
-        (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) as member_count,
-        (SELECT COUNT(*) FROM messages m WHERE m.group_id = g.id AND datetime(m.created_at) > datetime(COALESCE(gm.last_read_at, '1970-01-01'))) as unread_count,
-        (SELECT MAX(created_at) FROM messages m WHERE m.group_id = g.id) as last_message_timestamp
+               COALESCE(mc.member_count, 0) as member_count,
+               COALESCE(uc.unread_count, 0) as unread_count,
+               lm.last_message_timestamp
         FROM groups g
-        JOIN group_members gm ON g.id = gm.group_id
-        WHERE gm.user_id = ?
-      `).all(req.user.userId);
+        JOIN group_members gm ON g.id = gm.group_id AND gm.user_id = ?
+        LEFT JOIN (
+            SELECT group_id, COUNT(*) as member_count
+            FROM group_members
+            GROUP BY group_id
+        ) mc ON g.id = mc.group_id
+        LEFT JOIN (
+            SELECT m.group_id, COUNT(*) as unread_count
+            FROM messages m
+            JOIN group_members gm2 ON m.group_id = gm2.group_id AND gm2.user_id = ?
+            WHERE datetime(m.created_at) > datetime(COALESCE(gm2.last_read_at, '1970-01-01'))
+              AND m.sender_id != ?
+            GROUP BY m.group_id
+        ) uc ON g.id = uc.group_id
+        LEFT JOIN (
+            SELECT group_id, MAX(created_at) as last_message_timestamp
+            FROM messages
+            WHERE group_id IS NOT NULL
+            GROUP BY group_id
+        ) lm ON g.id = lm.group_id
+      `).all(req.user.userId, req.user.userId, req.user.userId);
       console.log('GET /api/groups result sample:', groups.length > 0 ? groups[0] : 'empty');
       res.json(groups);
     } catch (err: any) {
@@ -98,13 +116,32 @@ export function setupGroupRoutes(server: express.Express, io: any, connectedUser
       
       const newGroup = db.prepare(`
         SELECT g.*, gm.role, gm.joined_at, gm.last_read_at, gm.encrypted_keys,
-        (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) as member_count,
-        (SELECT COUNT(*) FROM messages m WHERE m.group_id = g.id AND datetime(m.created_at) > datetime(COALESCE(gm.last_read_at, '1970-01-01'))) as unread_count,
-        (SELECT MAX(created_at) FROM messages m WHERE m.group_id = g.id) as last_message_timestamp
+               COALESCE(mc.member_count, 0) as member_count,
+               COALESCE(uc.unread_count, 0) as unread_count,
+               lm.last_message_timestamp
         FROM groups g
-        JOIN group_members gm ON g.id = gm.group_id
-        WHERE g.id = ? AND gm.user_id = ?
-      `).get(groupId, creatorId);
+        JOIN group_members gm ON g.id = gm.group_id AND gm.user_id = ?
+        LEFT JOIN (
+            SELECT group_id, COUNT(*) as member_count
+            FROM group_members
+            GROUP BY group_id
+        ) mc ON g.id = mc.group_id
+        LEFT JOIN (
+            SELECT m.group_id, COUNT(*) as unread_count
+            FROM messages m
+            JOIN group_members gm2 ON m.group_id = gm2.group_id AND gm2.user_id = ?
+            WHERE datetime(m.created_at) > datetime(COALESCE(gm2.last_read_at, '1970-01-01'))
+              AND m.sender_id != ?
+            GROUP BY m.group_id
+        ) uc ON g.id = uc.group_id
+        LEFT JOIN (
+            SELECT group_id, MAX(created_at) as last_message_timestamp
+            FROM messages
+            WHERE group_id IS NOT NULL
+            GROUP BY group_id
+        ) lm ON g.id = lm.group_id
+        WHERE g.id = ?
+      `).get(creatorId, creatorId, creatorId, groupId);
 
       res.json(newGroup);
     } catch (err: any) {

@@ -247,20 +247,34 @@ export function setupUserRoutes(server: express.Express, io: any, connectedUsers
           SELECT u.*, 
                  COALESCE(c.is_pinned, 0) as is_pinned,
                  COALESCE(c.circle_type, 'normal') as circle_type,
-                 (SELECT CASE WHEN circle_type = 'blacklist' THEN 1 ELSE 0 END FROM contacts WHERE user_id = u.id AND contact_id = ?) as is_blacklisted_by,
+                 COALESCE(bl.is_blacklisted_by, 0) as is_blacklisted_by,
                  CASE WHEN c.contact_id IS NOT NULL THEN 1 ELSE 0 END as is_contact,
-                 (SELECT COUNT(*) FROM messages m WHERE m.sender_id = u.id AND m.receiver_id = ? AND m.status != 'read') as unread_count,
-                 (SELECT MAX(created_at) FROM messages m WHERE (m.sender_id = u.id AND m.receiver_id = ?) OR (m.sender_id = ? AND m.receiver_id = u.id)) as last_message_timestamp
+                 COALESCE(uc.unread_count, 0) as unread_count,
+                 lm.last_message_timestamp
           FROM users u
           LEFT JOIN contacts c ON u.id = c.contact_id AND c.user_id = ?
-          WHERE (c.contact_id IS NOT NULL 
-             OR u.id IN (
-                 SELECT sender_id FROM messages WHERE receiver_id = ?
-                 UNION
-                 SELECT receiver_id FROM messages WHERE sender_id = ?
-             ))
+          LEFT JOIN (
+              SELECT sender_id as peer_id, COUNT(*) as unread_count
+              FROM messages
+              WHERE receiver_id = ? AND status != 'read'
+              GROUP BY sender_id
+          ) uc ON u.id = uc.peer_id
+          LEFT JOIN (
+              SELECT 
+                CASE WHEN sender_id = ? THEN receiver_id ELSE sender_id END as peer_id,
+                MAX(created_at) as last_message_timestamp
+              FROM messages
+              WHERE sender_id = ? OR receiver_id = ?
+              GROUP BY peer_id
+          ) lm ON u.id = lm.peer_id
+          LEFT JOIN (
+              SELECT user_id as peer_id, 1 as is_blacklisted_by
+              FROM contacts
+              WHERE contact_id = ? AND circle_type = 'blacklist'
+          ) bl ON u.id = bl.peer_id
+          WHERE (c.contact_id IS NOT NULL OR lm.peer_id IS NOT NULL)
           AND u.id != 'system'
-        `).all(req.user.userId, req.user.userId, req.user.userId, req.user.userId, req.user.userId, req.user.userId, req.user.userId);
+        `).all(req.user.userId, req.user.userId, req.user.userId, req.user.userId, req.user.userId, req.user.userId);
         
         // Filter out the current user from the results
         contacts = contacts.filter((c: any) => c.id !== req.user.userId);
