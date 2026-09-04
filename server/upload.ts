@@ -23,8 +23,37 @@ const storage = multer.diskStorage({
         originalName = Buffer.from(originalName, 'latin1').toString('utf8');
       } catch (e2) {}
     }
-    cb(null, 'file-' + uniqueSuffix + path.extname(originalName));
+    
+    // Sanitize extension and block dangerous extensions
+    const ext = path.extname(originalName).toLowerCase();
+    const dangerousExtensions = ['.js', '.mjs', '.ts', '.tsx', '.sh', '.exe', '.bat', '.cmd', '.php', '.py', '.pl', '.rb', '.jar', '.html', '.htm', '.svg'];
+    if (dangerousExtensions.includes(ext)) {
+      return cb(new Error('Недопустимый формат файла (исполняемые и скриптовые файлы запрещены)'), '');
+    }
+
+    cb(null, 'file-' + uniqueSuffix + ext);
   }
 });
 
-export const upload = multer({ storage: storage });
+const fileFilter = (req: any, file: any, cb: any) => {
+  let originalName = file.originalname;
+  try {
+    originalName = decodeURIComponent(originalName);
+  } catch(e) {}
+  
+  const ext = path.extname(originalName).toLowerCase();
+  const dangerousExtensions = ['.js', '.mjs', '.ts', '.tsx', '.sh', '.exe', '.bat', '.cmd', '.php', '.py', '.pl', '.rb', '.jar', '.html', '.htm', '.svg'];
+  
+  if (dangerousExtensions.includes(ext)) {
+    return cb(new Error('Недопустимый формат файла (исполняемые файлы заблокированы)'), false);
+  }
+  
+  cb(null, true);
+};
+
+export const upload = multer({ 
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
+});
+
