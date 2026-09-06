@@ -575,6 +575,18 @@ export function useChat() {
     fetchContactCircles();
     fetchReminders();
 
+    console.log('[MobileConnectionLog] Initializing chat session & network state...');
+    console.log('[MobileConnectionLog] navigator.onLine:', navigator.onLine);
+    const conn = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+    if (conn) {
+      console.log('[MobileConnectionLog] Network Connection Info:', {
+        effectiveType: conn.effectiveType,
+        rtt: conn.rtt,
+        downlink: conn.downlink,
+        saveData: conn.saveData
+      });
+    }
+
     const newSocket = io({
       auth: { token: storedToken },
       transports: ['polling', 'websocket'],
@@ -583,6 +595,18 @@ export function useChat() {
       timeout: 20000
     });
     
+    newSocket.on('connect', () => {
+      console.log('[MobileConnectionLog] Socket connected successfully! ID:', newSocket.id, 'Transport:', newSocket.io.engine.transport.name);
+    });
+
+    newSocket.on('connect_error', (err) => {
+      console.warn('[MobileConnectionLog] Socket connection error:', err.message);
+    });
+
+    newSocket.io.engine.on('upgrade', (transport: any) => {
+      console.log('[MobileConnectionLog] Socket transport upgraded to:', transport.name);
+    });
+
     setSocket(newSocket);
     
     return () => {

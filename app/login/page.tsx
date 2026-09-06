@@ -23,16 +23,29 @@ export default function Login() {
     setMounted(true);
     const token = safeLocalStorage.getItem('token');
     const user = safeLocalStorage.getItem('user');
+    const savedUser = safeLocalStorage.getItem('saved_username');
+    const savedPass = safeLocalStorage.getItem('saved_password');
+
+    if (savedUser) setUsername(savedUser);
+    if (savedPass) setPassword(savedPass);
+
     if (token && user && user !== 'undefined') {
       window.location.href = '/';
     } else {
-      // Reset everything for a new user as requested
-      safeLocalStorage.clear();
-      
       // Check if we were redirected due to session revocation
       if (typeof window !== 'undefined' && window.location.search.includes('revoked=true')) {
         setError(language === 'en' ? 'Your session was terminated from another device. Please log in again.' : 'Ваша сессия была завершена с другого устройства. Пожалуйста, войдите снова.');
         window.history.replaceState({}, document.title, window.location.pathname);
+        safeLocalStorage.removeItem('saved_password');
+      } else if (savedUser && savedPass) {
+        // Automatically attempt login with saved credentials
+        setTimeout(() => {
+          // Trigger programmatic login
+          const loginBtn = document.getElementById('login-submit-btn');
+          if (loginBtn) {
+            loginBtn.click();
+          }
+        }, 200);
       }
     }
   }, [router, language]);
@@ -58,6 +71,8 @@ export default function Login() {
       }
 
       if (!res.ok) {
+        // If auto-login failed due to wrong saved password, clear saved password
+        safeLocalStorage.removeItem('saved_password');
         throw new Error(data.error || 'Login failed');
       }
       
@@ -114,6 +129,8 @@ export default function Login() {
 
       safeLocalStorage.setItem('token', data.token);
       safeLocalStorage.setItem('user', JSON.stringify(data.user));
+      safeLocalStorage.setItem('saved_username', username);
+      safeLocalStorage.setItem('saved_password', password);
       if (typeof window !== 'undefined') {
         safeSessionStorage.setItem('user_password', password);
       }
@@ -190,8 +207,8 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
             {/* Anti-autofill hidden trap to trick browser password managers */}
-            <input type="text" name="fakeusernameremembered" className="hidden" tabIndex={-1} aria-hidden="true" autoComplete="off" />
-            <input type="password" name="fakepasswordremembered" className="hidden" tabIndex={-1} aria-hidden="true" autoComplete="off" />
+            <input type="text" name="username" className="hidden" tabIndex={-1} aria-hidden="true" autoComplete="username" />
+            <input type="password" name="password" className="hidden" tabIndex={-1} aria-hidden="true" autoComplete="current-password" />
 
             <div>
               <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">{t.auth.nickname} / Email</label>
@@ -201,10 +218,10 @@ export default function Login() {
                 </div>
                 <input
                   type="text"
-                  name="unique_chat_username_field"
+                  name="username"
                   required
                   value={username}
-                  autoComplete="new-password"
+                  autoComplete="username"
                   onChange={(e) => setUsername(e.target.value)}
                   className="block w-full pl-10 pr-3 py-2.5 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-xl focus:ring-2 focus:ring-indigo-600 dark:focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600"
                   placeholder={`${t.auth.nickname} or Email`}
@@ -225,13 +242,11 @@ export default function Login() {
                 </div>
                 <input
                   type="password"
-                  name="unique_chat_password_field"
+                  name="password"
                   required
                   value={password}
-                  autoComplete="new-password"
+                  autoComplete="current-password"
                   onChange={(e) => setPassword(e.target.value)}
-                  onFocus={(e) => e.target.removeAttribute('readonly')}
-                  readOnly
                   className="block w-full pl-10 pr-3 py-2.5 bg-white dark:bg-neutral-950 border border-neutral-200 dark:border-neutral-800 rounded-xl focus:ring-2 focus:ring-indigo-600 dark:focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-neutral-900 dark:text-white placeholder-neutral-400 dark:placeholder-neutral-600"
                   placeholder="••••••••"
                 />
@@ -239,6 +254,7 @@ export default function Login() {
             </div>
 
             <button
+              id="login-submit-btn"
               type="submit"
               disabled={loading}
               className="w-full flex items-center justify-center gap-2 bg-indigo-600 dark:bg-indigo-500 text-white py-3 px-4 rounded-xl hover:bg-indigo-700 dark:hover:bg-indigo-600 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900/30 transition-all disabled:opacity-70 font-medium"

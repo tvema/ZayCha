@@ -43,6 +43,17 @@ export default function ChatApp() {
   const { callState, callPeerId, acceptCall, expectCall, rejectCall } = webrtc;
   const { permission, subscribeToPush } = usePushNotifications(token);
 
+  const [isSplashLoading, setIsSplashLoading] = useState(true);
+
+  useEffect(() => {
+    console.log('[MobileConnectionLog] App mount start. User state:', { hasUser: !!user, hasToken: !!token });
+    const timer = setTimeout(() => {
+      setIsSplashLoading(false);
+      console.log('[MobileConnectionLog] Splash screen finished. Rendering main interface.');
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [user, token]);
+
   useEffect(() => {
     if (token && permission === 'granted') {
         subscribeToPush(false).catch(err => {
@@ -289,25 +300,28 @@ export default function ChatApp() {
     return () => clearTimeout(timer);
   }, [user]);
 
-  if (!user) {
+  if (isSplashLoading || !user || !token) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-neutral-100 dark:bg-neutral-900">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-4 border-indigo-200 dark:border-indigo-900/30 border-t-indigo-600 dark:border-t-indigo-400 rounded-full animate-spin"></div>
-          {loadingTimeout && (
-            <div className="flex flex-col items-center gap-2">
-              <div className="text-sm text-neutral-500 animate-pulse">
-                Loading taking longer than expected...
-              </div>
-              <button 
-                onClick={() => window.location.href = '/login'}
-                className="text-xs text-indigo-500 hover:underline"
-              >
-                Go to login manually
-              </button>
-            </div>
-          )}
+      <div className="fixed inset-0 bg-neutral-950 text-white flex flex-col items-center justify-center p-6 z-50">
+        <div className="relative mb-6">
+          <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/30 animate-pulse">
+            <span className="text-2xl font-bold">Z</span>
+          </div>
+          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-4 border-neutral-950 animate-ping" />
         </div>
+        <h1 className="text-xl font-semibold tracking-tight mb-2">ZayChat</h1>
+        <p className="text-neutral-400 text-sm mb-6 animate-pulse">Защищенное соединение с сервером...</p>
+        <div className="w-48 h-1 bg-neutral-800 rounded-full overflow-hidden">
+          <div className="w-full h-full bg-indigo-500" />
+        </div>
+        {loadingTimeout && (
+          <button 
+            onClick={() => window.location.href = '/login'}
+            className="mt-6 text-xs text-indigo-400 hover:underline"
+          >
+            Войти заново / Сбросить сессию
+          </button>
+        )}
       </div>
     );
   }
