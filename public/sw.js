@@ -4,8 +4,21 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
+const STATIC_CACHE_NAME = 'zaychat-static-v2';
+
 self.addEventListener('activate', (event) => {
-  event.waitUntil(clients.claim());
+  event.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys.map((key) => {
+          if (key.startsWith('zaychat-static-') && key !== STATIC_CACHE_NAME) {
+            console.log('[SW] Deleting old static cache:', key);
+            return caches.delete(key);
+          }
+        })
+      );
+    }).then(() => clients.claim())
+  );
 });
 
 function base64ToArrayBufferSW(base64) {
@@ -204,7 +217,66 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // 2. Only intercept GET requests for static assets (scripts, styles, icons, fonts)
+  if (event.request.method === 'GET') {
+    const isStaticAsset = (
+      url.pathname.startsWith('/_next/static/') ||
+      url.pathname.startsWith('/icon-') ||
+      url.pathname === '/favicon.ico' ||
+      url.pathname === '/manifest.json'
+    );
 
+    if (isStaticAsset) {
+      event.respondWith(
+        (async () => {
+          // A. Try Cache Storage first (instant 0ms response)
+          try {
+            const cached = await caches.match(event.request);
+            if (cached) {
+              return cached;
+            }
+          } catch (e) {
+            // Cache lookup failure, fallback to network
+          }
+
+          // B. Network fetch with automatic retry on ERR_CONNECTION_RESET / ERR_NETWORK_CHANGED
+          let lastError = null;
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+              const res = await fetch(event.request);
+              if (res && (res.status === 200 || res.type === 'opaque')) {
+                try {
+                  const cache = await caches.open(STATIC_CACHE_NAME);
+                  cache.put(event.request, res.clone());
+                } catch (cErr) {
+                  // Cache write failure (quota/unsupported) is non-fatal
+                }
+                return res;
+              }
+              if (res && res.status >= 400 && res.status < 500) {
+                // 404 or client error - don't retry endlessly
+                return res;
+              }
+            } catch (err) {
+              lastError = err;
+              console.warn(`[SW] Static asset fetch attempt ${attempt}/3 failed for ${url.pathname}:`, err);
+              if (attempt < 3) {
+                // Wait before retrying to let the cellular interface/socket settle
+                await new Promise((resolve) => setTimeout(resolve, attempt * 350));
+              }
+            }
+          }
+
+          // If all 3 attempts failed, try a fresh un-cached direct fetch or rethrow
+          if (lastError) {
+            throw lastError;
+          }
+          return fetch(event.request);
+        })()
+      );
+      return;
+    }
+  }
 });
 
 self.addEventListener('push', function(event) {

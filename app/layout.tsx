@@ -326,6 +326,28 @@ export default function RootLayout({
                   }, delay);
                 }
 
+                var linkRetryAttempts = {};
+                function retryLinkTag(href) {
+                  var attempt = (linkRetryAttempts[href] || 0) + 1;
+                  linkRetryAttempts[href] = attempt;
+                  if (attempt > 3) return;
+                  var linkName = href.split('/').pop().split('?')[0];
+                  console.log('🔄 [Авто-повтор] Загрузка стилей (' + attempt + '/3): ' + linkName);
+                  setTimeout(function() {
+                    var l = document.createElement('link');
+                    l.rel = 'stylesheet';
+                    var sep = href.indexOf('?') === -1 ? '?' : '&';
+                    l.href = href + sep + '_retry=' + attempt + '_' + Date.now();
+                    l.onload = function() {
+                      console.log('✅ [Авто-повтор успешен] Стили загружены: ' + linkName);
+                    };
+                    l.onerror = function() {
+                      retryLinkTag(href);
+                    };
+                    document.head.appendChild(l);
+                  }, attempt === 1 ? 300 : attempt * 800);
+                }
+
                 // Global error listener
                 window.addEventListener('error', function(e) {
                   var t = e.target || e.srcElement;
@@ -336,6 +358,10 @@ export default function RootLayout({
                     var netHint = document.getElementById('zaychat-net-hint');
                     if (netHint) netHint.classList.remove('hidden');
                     retryScriptTag(t.src);
+                  } else if (t && t.tagName === 'LINK' && t.href && (t.rel === 'stylesheet' || t.as === 'style')) {
+                    var cssName = t.href.split('/').pop().split('?')[0];
+                    console.warn('⚠️ [Стили] Ошибка загрузки CSS сети: ' + cssName);
+                    retryLinkTag(t.href);
                   } else {
                     var rawMsg = (e.message || '');
                     if (rawMsg && rawMsg !== 'Unknown error' && rawMsg !== 'Script error.' && rawMsg.indexOf('hydration') === -1 && rawMsg.indexOf('Hydration') === -1) {
