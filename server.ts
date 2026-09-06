@@ -68,6 +68,11 @@ app.prepare().then(() => {
   console.log('Next.js app prepared successfully.');
   const server = express();
   const httpServer = createServer(server);
+
+  // Configure timeouts for network stability (prevents ERR_CONNECTION_ABORTED on reverse proxy / mobile networks)
+  httpServer.keepAliveTimeout = 65000;
+  httpServer.headersTimeout = 66000;
+
   const io = new SocketIOServer(httpServer, {
     cors: {
       origin: "*",
@@ -88,10 +93,29 @@ app.prepare().then(() => {
   });
   server.use(express.json({ limit: '50mb' }));
   server.use(express.urlencoded({ limit: '50mb', extended: true }));
-  // Serve static files from public folder (sw.js, manifest.json, etc.)
-  server.use(express.static(path.join(process.cwd(), 'public')));
-  server.use('/_next/static', express.static(path.join(process.cwd(), '.next/static')));
-  server.use('/uploads', express.static(uploadDir));
+
+  // Static chunks (.next/static) are hashed and immutable in production
+  server.use('/_next/static', express.static(path.join(process.cwd(), '.next/static'), {
+    maxAge: '365d',
+    immutable: true,
+    fallthrough: true
+  }));
+
+  // Serve static files from public folder (sw.js, manifest.json, icons, etc.)
+  server.use(express.static(path.join(process.cwd(), 'public'), {
+    maxAge: '7d',
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('sw.js')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      } else if (filePath.endsWith('manifest.json')) {
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+      }
+    }
+  }));
+
+  server.use('/uploads', express.static(uploadDir, {
+    maxAge: '30d'
+  }));
 
   const connectedUsers = new Map<string, Set<string>>(); // userId -> Set of socketIds
 

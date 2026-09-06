@@ -303,6 +303,40 @@ export default function RootLayout({
                 console.log('🚀 [Boot 1/5] HTML получен браузером. Путь: ' + path);
                 console.log('🔑 [Boot 2/5] Проверка localStorage: token=' + (token ? 'ЕСТЬ' : 'НЕТ') + ', user=' + (user ? 'ЕСТЬ' : 'НЕТ'));
 
+                var chunkRetries = {};
+                function retryScriptTag(src) {
+                  if (!src) return;
+                  chunkRetries[src] = (chunkRetries[src] || 0) + 1;
+                  var attempt = chunkRetries[src];
+                  if (attempt > 3) {
+                    console.warn('❌ [Чанк] Превышен лимит повторов (' + attempt + '): ' + src);
+                    var netHint = document.getElementById('zaychat-net-hint');
+                    if (netHint) netHint.classList.remove('hidden');
+                    return;
+                  }
+                  var scriptName = src.split('/').pop().split('?')[0];
+                  console.log('🔄 [Авто-повтор] Загрузка чанка (' + attempt + '/3): ' + scriptName);
+                  updateStep('step-scripts', 'Повтор: ' + scriptName + ' (' + attempt + ') 🔄', 'text-amber-400 font-medium', 'w-2 h-2 rounded-full bg-amber-500 animate-pulse');
+                  
+                  var delay = attempt === 1 ? 400 : attempt * 1000;
+                  setTimeout(function() {
+                    var s = document.createElement('script');
+                    var sep = src.indexOf('?') === -1 ? '?' : '&';
+                    s.src = src + sep + '_retry=' + attempt + '_' + Date.now();
+                    s.async = false;
+                    s.defer = true;
+                    s.onload = function() {
+                      console.log('✅ [Авто-повтор успешен] Чанк загружен: ' + scriptName);
+                      updateStep('step-scripts', 'Чанк восстановлен ✅', 'text-emerald-400 font-medium', 'w-2 h-2 rounded-full bg-emerald-500');
+                    };
+                    s.onerror = function() {
+                      console.warn('⚠️ [Авто-повтор сбой] Чанк: ' + scriptName + ' (попытка ' + attempt + ')');
+                      retryScriptTag(src);
+                    };
+                    document.head.appendChild(s);
+                  }, delay);
+                }
+
                 // Global error listener
                 window.addEventListener('error', function(e) {
                   var t = e.target || e.srcElement;
@@ -312,6 +346,7 @@ export default function RootLayout({
                     updateStep('step-scripts', 'Сбой сети (' + scriptName + ') ⚠️', 'text-amber-400 font-medium', 'w-2 h-2 rounded-full bg-amber-500');
                     var netHint = document.getElementById('zaychat-net-hint');
                     if (netHint) netHint.classList.remove('hidden');
+                    retryScriptTag(t.src);
                   } else {
                     var rawMsg = (e.message || 'Unknown error');
                     if (rawMsg.indexOf('hydration') === -1 && rawMsg.indexOf('Hydration') === -1) {
@@ -328,6 +363,10 @@ export default function RootLayout({
                     var rejMsg = '❌ [Unhandled Promise] ' + rejReason;
                     window.__addZayChatLog('error', rejMsg);
                     origErr.call(console, rejMsg);
+                    if (rejReason.indexOf('Loading chunk') !== -1 || rejReason.indexOf('ChunkLoadError') !== -1) {
+                      var netHint = document.getElementById('zaychat-net-hint');
+                      if (netHint) netHint.classList.remove('hidden');
+                    }
                   }
                 });
 
@@ -415,6 +454,16 @@ export default function RootLayout({
                   console.log('🌐 [Boot 4/5] Window Loaded - все ресурсы страницы загружены.');
                   updateStep('step-scripts', 'Все модули загружены ✅', 'text-emerald-400 font-medium', 'w-2 h-2 rounded-full bg-emerald-500');
                   updateStep('step-app', 'Запуск React... ⏳', 'text-amber-400 font-medium', 'w-2 h-2 rounded-full bg-amber-500 animate-pulse');
+
+                  // Safety timeout: If React hasn't dismissed splash screen after 5 seconds
+                  setTimeout(function() {
+                    var splash = document.getElementById('zaychat-boot-splash');
+                    if (splash && (!splash.style.opacity || splash.style.opacity !== '0')) {
+                      console.warn('⚠️ [Boot] Задержка запуска интерфейса.');
+                      var slowHint = document.getElementById('zaychat-slow-hint');
+                      if (slowHint) slowHint.classList.remove('hidden');
+                    }
+                  }, 5000);
                 });
               })();
             `,
