@@ -424,12 +424,17 @@ export function useChat() {
     const storedToken = safeLocalStorage.getItem('token');
     if (!storedToken) return;
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
       const res = await fetch('/api/contacts', {
-        headers: { 'Authorization': `Bearer ${storedToken}` }
+        headers: { 'Authorization': `Bearer ${storedToken}` },
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
       if (res.ok) {
         const text = await res.text();
-        setContacts(text ? JSON.parse(text) : []);
+        const contactsData = text ? JSON.parse(text) : [];
+        setContacts(contactsData);
       } else {
         if (res.status === 401) {
           safeLocalStorage.clear();
@@ -437,13 +442,13 @@ export function useChat() {
           return;
         }
         console.warn('Failed to fetch contacts, status:', res.status);
-        if (retryCount < 3) {
+        if (retryCount < 5) {
           setTimeout(() => fetchContacts(retryCount + 1), 1000 * (retryCount + 1));
         }
       }
-    } catch (err) {
-      console.warn('Failed to fetch contacts:', err);
-      if (retryCount < 3) {
+    } catch (err: any) {
+      console.warn('Failed to fetch contacts:', err?.message || err);
+      if (retryCount < 5) {
         setTimeout(() => fetchContacts(retryCount + 1), 1000 * (retryCount + 1));
       }
     }
@@ -453,9 +458,13 @@ export function useChat() {
     const storedToken = safeLocalStorage.getItem('token');
     if (!storedToken) return;
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
       const res = await fetch('/api/groups', {
-        headers: { 'Authorization': `Bearer ${storedToken}` }
+        headers: { 'Authorization': `Bearer ${storedToken}` },
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
       if (res.ok) {
         const text = await res.text();
         const groupsData = text ? JSON.parse(text) : [];
@@ -467,13 +476,13 @@ export function useChat() {
           return;
         }
         console.warn('Failed to fetch groups, status:', res.status);
-        if (retryCount < 3) {
+        if (retryCount < 5) {
           setTimeout(() => fetchGroups(retryCount + 1), 1000 * (retryCount + 1));
         }
       }
-    } catch (err) {
-      console.warn('Failed to fetch groups:', err);
-      if (retryCount < 3) {
+    } catch (err: any) {
+      console.warn('Failed to fetch groups:', err?.message || err);
+      if (retryCount < 5) {
         setTimeout(() => fetchGroups(retryCount + 1), 1000 * (retryCount + 1));
       }
     }

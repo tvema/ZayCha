@@ -4,6 +4,7 @@ import { initializeDatabase } from './schema.js';
 // Setup Database
 const db = new Database('chat.db');
 db.pragma('journal_mode = WAL');
+db.pragma('busy_timeout = 5000');
 
 initializeDatabase(db);
 

@@ -26,6 +26,30 @@ function getInitialToken(): string | null {
   }
 }
 
+function getInitialContacts(): User[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = safeLocalStorage.getItem('cached_contacts');
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function getInitialGroups(): Group[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = safeLocalStorage.getItem('cached_groups');
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
 interface ChatState {
   user: User | null;
   token: string | null;
@@ -73,8 +97,8 @@ interface ChatState {
 export const useChatStore = create<ChatState>((set) => ({
   user: getInitialUser(),
   token: getInitialToken(),
-  contacts: [],
-  groups: [],
+  contacts: getInitialContacts(),
+  groups: getInitialGroups(),
   contactCircles: [],
   unlockedCircles: [],
   
@@ -94,8 +118,20 @@ export const useChatStore = create<ChatState>((set) => ({
   
   setUser: (updater) => set((state) => ({ user: typeof updater === 'function' ? (updater as any)(state.user) : updater })),
   setToken: (updater) => set((state) => ({ token: typeof updater === 'function' ? (updater as any)(state.token) : updater })),
-  setContacts: (updater) => set((state) => ({ contacts: typeof updater === 'function' ? (updater as any)(state.contacts) : updater })),
-  setGroups: (updater) => set((state) => ({ groups: typeof updater === 'function' ? (updater as any)(state.groups) : updater })),
+  setContacts: (updater) => set((state) => {
+    const nextContacts = typeof updater === 'function' ? (updater as any)(state.contacts) : updater;
+    if (Array.isArray(nextContacts)) {
+      try { safeLocalStorage.setItem('cached_contacts', JSON.stringify(nextContacts)); } catch (e) {}
+    }
+    return { contacts: nextContacts };
+  }),
+  setGroups: (updater) => set((state) => {
+    const nextGroups = typeof updater === 'function' ? (updater as any)(state.groups) : updater;
+    if (Array.isArray(nextGroups)) {
+      try { safeLocalStorage.setItem('cached_groups', JSON.stringify(nextGroups)); } catch (e) {}
+    }
+    return { groups: nextGroups };
+  }),
   setContactCircles: (updater) => set((state) => ({ contactCircles: typeof updater === 'function' ? (updater as any)(state.contactCircles) : updater })),
   setUnlockedCircles: (updater) => set((state) => ({ unlockedCircles: typeof updater === 'function' ? (updater as any)(state.unlockedCircles) : updater })),
   

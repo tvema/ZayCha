@@ -248,11 +248,11 @@ export function setupUserRoutes(server: express.Express, io: any, connectedUsers
                  COALESCE(c.is_pinned, 0) as is_pinned,
                  COALESCE(c.circle_type, 'normal') as circle_type,
                  COALESCE(bl.is_blacklisted_by, 0) as is_blacklisted_by,
-                 CASE WHEN c.contact_id IS NOT NULL THEN 1 ELSE 0 END as is_contact,
+                 1 as is_contact,
                  COALESCE(uc.unread_count, 0) as unread_count,
                  lm.last_message_timestamp
-          FROM users u
-          LEFT JOIN contacts c ON u.id = c.contact_id AND c.user_id = ?
+          FROM contacts c
+          JOIN users u ON c.contact_id = u.id
           LEFT JOIN (
               SELECT sender_id as peer_id, COUNT(*) as unread_count
               FROM messages
@@ -272,7 +272,7 @@ export function setupUserRoutes(server: express.Express, io: any, connectedUsers
               FROM contacts
               WHERE contact_id = ? AND circle_type = 'blacklist'
           ) bl ON u.id = bl.peer_id
-          WHERE u.id != 'system'
+          WHERE c.user_id = ? AND u.id != 'system'
         `).all(req.user.userId, req.user.userId, req.user.userId, req.user.userId, req.user.userId, req.user.userId);
         
         // Filter out the current user from the results

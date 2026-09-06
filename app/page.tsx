@@ -83,6 +83,29 @@ export default function ChatApp() {
       }
     }
 
+    const storedToken = safeLocalStorage.getItem('token');
+    if (storedToken && !useChatStore.getState().token) {
+      useChatStore.getState().setToken(storedToken);
+    }
+    const storedContacts = safeLocalStorage.getItem('cached_contacts');
+    if (storedContacts && useChatStore.getState().contacts.length === 0) {
+      try {
+        const parsed = JSON.parse(storedContacts);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          useChatStore.getState().setContacts(parsed);
+        }
+      } catch (e) {}
+    }
+    const storedGroups = safeLocalStorage.getItem('cached_groups');
+    if (storedGroups && useChatStore.getState().groups.length === 0) {
+      try {
+        const parsed = JSON.parse(storedGroups);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          useChatStore.getState().setGroups(parsed);
+        }
+      } catch (e) {}
+    }
+
     const timer = setTimeout(() => {
       setIsSplashLoading(false);
       console.log('✨ [ChatApp Mount] Сплэш-экран отработал. Переход к отображению чата.');
