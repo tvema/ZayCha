@@ -204,38 +204,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Resilient caching for immutable Next.js static bundles and chunks
-  if (event.request.method === 'GET' && url.pathname.startsWith('/_next/static/')) {
-    event.respondWith((async () => {
-      try {
-        const cache = await caches.open('zaychat-static-v3');
-        const cached = await cache.match(event.request);
-        if (cached) {
-          return cached;
-        }
-        const response = await fetch(event.request);
-        if (response && response.status === 200) {
-          cache.put(event.request, response.clone());
-        }
-        return response;
-      } catch (err) {
-        try {
-          const retryRes = await fetch(event.request);
-          if (retryRes && retryRes.status === 200) {
-            const cache = await caches.open('zaychat-static-v3');
-            cache.put(event.request, retryRes.clone());
-          }
-          return retryRes;
-        } catch (e2) {
-          const cache = await caches.open('zaychat-static-v3');
-          const fallback = await cache.match(event.request);
-          if (fallback) return fallback;
-          throw err;
-        }
-      }
-    })());
-    return;
-  }
+
 });
 
 self.addEventListener('push', function(event) {

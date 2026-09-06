@@ -11,9 +11,14 @@ import { CallOverlay } from '@/components/chat/CallOverlay';
 import { ChatModals } from '@/components/chat/ChatModals';
 import TriggeredRemindersOverlay from '@/components/chat/TriggeredRemindersOverlay';
 import { safeLocalStorage } from '@/lib/safeStorage';
+import { DiagnosticTerminal } from '@/components/DiagnosticTerminal';
+import { useChatStore } from '@/store/chatStore';
 
 export default function ChatApp() {
+  console.log('⚛️ [React Page] ChatApp рендерится...');
+
   useEffect(() => {
+    console.log('⚛️ [React Page] ChatApp смонтирован на клиенте.');
     // Import webrtc-adapter only on the client
     import('webrtc-adapter').catch(err => {
       console.warn('WebRTC adapter chunk failed to load. This might be due to a server restart. Refresh the page to fix.', err);
@@ -52,17 +57,28 @@ export default function ChatApp() {
 
   useEffect(() => {
     const t = safeLocalStorage.getItem('token');
-    console.log('[MobileConnectionLog] App mount. Token in storage:', !!t);
+    const u = safeLocalStorage.getItem('user');
+    console.log('🔍 [ChatApp Mount] Проверка сессии в хранилище: token=' + (t ? 'ЕСТЬ' : 'НЕТ') + ', user=' + (u ? 'ЕСТЬ' : 'НЕТ'));
     if (!t) {
-      console.warn('[MobileConnectionLog] No token found on mount, redirecting to /login');
+      console.warn('⚠️ [ChatApp Mount] Токен отсутствует, перенаправление на /login');
       window.location.href = '/login';
       return;
     }
 
+    if (!user && u) {
+      try {
+        const parsed = JSON.parse(u);
+        console.log('👤 [ChatApp Mount] Локальный профиль найден, гидратация:', parsed.username || parsed.id);
+        useChatStore.getState().setUser(parsed);
+      } catch (e) {
+        console.error('❌ [ChatApp Mount] Ошибка парсинга профиля из хранилища:', e);
+      }
+    }
+
     const timer = setTimeout(() => {
       setIsSplashLoading(false);
-      console.log('[MobileConnectionLog] Splash screen finished. Rendering main interface.');
-    }, 400);
+      console.log('✨ [ChatApp Mount] Сплэш-экран отработал. Переход к отображению чата.');
+    }, 600);
     return () => clearTimeout(timer);
   }, []);
 
@@ -314,31 +330,49 @@ export default function ChatApp() {
 
   if (isSplashLoading || !user) {
     return (
-      <div className="fixed inset-0 bg-neutral-950 text-white flex flex-col items-center justify-center p-6 z-50">
-        <div className="relative mb-6">
+      <div className="fixed inset-0 bg-neutral-950 text-white flex flex-col items-center justify-center p-4 z-50 overflow-y-auto">
+        <div className="relative mb-5 shrink-0">
           <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/30 animate-pulse">
             <span className="text-2xl font-bold">Z</span>
           </div>
           <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-4 border-neutral-950 animate-ping" />
         </div>
-        <h1 className="text-xl font-semibold tracking-tight mb-2">ZayChat</h1>
-        <p className="text-neutral-400 text-sm mb-6 animate-pulse">Защищенное соединение по HTTPS...</p>
-        <div className="w-48 h-1 bg-neutral-800 rounded-full overflow-hidden">
-          <div className="w-full h-full bg-indigo-500" />
+        <h1 className="text-xl font-semibold tracking-tight mb-1 text-center">ZayChat</h1>
+        <p className="text-neutral-400 text-sm mb-3 animate-pulse text-center">
+          Защищенное соединение по HTTPS...
+        </p>
+        <div className="w-48 h-1 bg-neutral-800 rounded-full overflow-hidden mb-3 shrink-0">
+          <div className="w-full h-full bg-indigo-500 animate-pulse" />
         </div>
+
+        {/* Live on-screen diagnostic terminal */}
+        <DiagnosticTerminal 
+          onForceEnter={user ? () => setIsSplashLoading(false) : undefined} 
+        />
+
         {loadingTimeout && (
-          <div className="flex flex-col items-center gap-3 mt-6">
-            <p className="text-xs text-neutral-400">Соединение занимает больше времени, чем обычно</p>
-            <button 
-              onClick={() => {
-                safeLocalStorage.removeItem('token');
-                safeLocalStorage.removeItem('user');
-                window.location.href = '/login';
-              }}
-              className="px-4 py-2 text-xs font-medium bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg transition-colors"
-            >
-              Войти заново / Сбросить сессию
-            </button>
+          <div className="flex flex-col items-center gap-3 mt-4 text-center">
+            <p className="text-xs text-amber-400/90 max-w-xs">
+              Связь с сервером занимает больше времени, чем обычно. Вы можете открыть журнал загрузки выше или сбросить сессию.
+            </p>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => window.location.reload()}
+                className="px-3 py-1.5 text-xs font-medium bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg transition-colors"
+              >
+                Обновить страницу
+              </button>
+              <button 
+                onClick={() => {
+                  safeLocalStorage.removeItem('token');
+                  safeLocalStorage.removeItem('user');
+                  window.location.href = '/login';
+                }}
+                className="px-3 py-1.5 text-xs font-medium bg-neutral-800 hover:bg-rose-950/50 text-rose-300 rounded-lg transition-colors"
+              >
+                Сбросить сессию
+              </button>
+            </div>
           </div>
         )}
       </div>

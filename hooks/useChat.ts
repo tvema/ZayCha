@@ -511,14 +511,14 @@ export function useChat() {
   const { handleRemoveContact, handleLeaveGroup, handleClearChat, handleMoveContactToCircle, handleAddUserToGroup, handleAddContact, handleBlockContact } = chatContacts;
 
   useEffect(() => {
-    console.log('[MobileConnectionLog] Checking localStorage token and user...');
+    console.log('🔍 [useChat 1/6] Старт проверки сессии...');
     const storedToken = safeLocalStorage.getItem('token');
     const storedUser = safeLocalStorage.getItem('user');
     
-    console.log('[MobileConnectionLog] storedToken exists:', !!storedToken, 'storedUser exists:', !!storedUser);
+    console.log('🔍 [useChat 2/6] storedToken:', storedToken ? ('Присутствует (длина ' + storedToken.length + ')') : 'НЕТ', 'storedUser:', storedUser ? 'Присутствует' : 'НЕТ');
 
     if (!storedToken || storedToken === 'undefined' || !storedUser || storedUser === 'undefined') {
-      console.warn('[MobileConnectionLog] ⚠️ Missing or invalid token/user in localStorage. Redirecting to /login');
+      console.warn('⚠️ [useChat 2/6] Сессия отсутствует или повреждена в памяти. Перенаправление на /login');
       safeLocalStorage.removeItem('token');
       safeLocalStorage.removeItem('user');
       safeLocalStorage.removeItem('e2e_private_key');
@@ -538,27 +538,29 @@ export function useChat() {
     
     setToken(storedToken);
     try {
-      setUser(JSON.parse(storedUser));
-      console.log('[MobileConnectionLog] Parsed user successfully from localStorage.');
+      const parsed = JSON.parse(storedUser);
+      setUser(parsed);
+      console.log('👤 [useChat 3/6] Профиль из кэша загружен:', parsed.username || parsed.name || ('ID: ' + parsed.id));
     } catch (e) {
-      console.error('[MobileConnectionLog] ❌ Failed to parse storedUser JSON:', e);
+      console.error('❌ [useChat 3/6] Ошибка парсинга storedUser JSON:', e);
       safeLocalStorage.removeItem('token');
       safeLocalStorage.removeItem('user');
       window.location.replace('/login');
       return;
     }
     
+    console.log('🌐 [useChat 4/6] Отправка проверочного запроса GET /api/users/me...');
     fetch('/api/users/me', {
       headers: { 'Authorization': `Bearer ${storedToken}` }
     })
     .then(async res => {
-      console.log('[MobileConnectionLog] /api/users/me response status:', res.status);
+      console.log('🌐 [useChat 5/6] /api/users/me статус ответа:', res.status, res.statusText);
       if (res.ok) {
         const text = await res.text();
         return text ? JSON.parse(text) : null;
       }
       if (res.status === 401 || res.status === 403) {
-        console.warn('[MobileConnectionLog] ⚠️ /api/users/me unauthorized (401/403). Logging out.');
+        console.warn('⚠️ [useChat 5/6] Сессия отклонена сервером (401/403). Выход.');
         handleLogout();
         return null;
       }
@@ -566,7 +568,7 @@ export function useChat() {
     })
     .then(data => {
       if (data && data.id) {
-        console.log('[MobileConnectionLog] ✅ /api/users/me success. User ID:', data.id);
+        console.log('✅ [useChat 5/6] /api/users/me успешно подтвержден. User ID:', data.id);
         setUser(data);
         safeLocalStorage.setItem('user', JSON.stringify(data));
       } else if (data === null) {
@@ -574,13 +576,13 @@ export function useChat() {
       }
     })
     .catch(err => {
-      console.warn('[MobileConnectionLog] ❌ Failed to fetch user:', err);
+      console.warn('⚠️ [useChat 5/6] Ошибка проверки профиля на сервере:', err.message);
       if (err.message.includes('401') || err.message.includes('403') || err.message.includes('Failed to fetch')) {
-        // Don't force logout on network error, but log it
-        console.warn('[MobileConnectionLog] Network or auth error when fetching user me.');
+        console.warn('ℹ️ [useChat] Работаем в оффлайн/кэшированном режиме по имеющимся локальным данным.');
       }
     });
     
+    console.log('👥 [useChat 6/6] Запрос списка контактов, групп и напоминаний...');
     fetchContacts();
     fetchGroups();
     fetchContactCircles();
