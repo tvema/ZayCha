@@ -11,7 +11,6 @@ import { CallOverlay } from '@/components/chat/CallOverlay';
 import { ChatModals } from '@/components/chat/ChatModals';
 import TriggeredRemindersOverlay from '@/components/chat/TriggeredRemindersOverlay';
 import { safeLocalStorage } from '@/lib/safeStorage';
-import { DiagnosticTerminal } from '@/components/DiagnosticTerminal';
 import { useChatStore } from '@/store/chatStore';
 
 export default function ChatApp() {
@@ -19,6 +18,15 @@ export default function ChatApp() {
 
   useEffect(() => {
     console.log('⚛️ [React Page] ChatApp смонтирован на клиенте.');
+    if (typeof window !== 'undefined') {
+      const el = document.getElementById('step-app-status');
+      if (el) {
+        el.textContent = 'Готово ✅';
+        el.className = 'text-emerald-400 font-medium text-[11px]';
+      }
+      const dot = document.getElementById('step-app-dot');
+      if (dot) dot.className = 'w-2 h-2 rounded-full bg-emerald-500 shrink-0';
+    }
     // Import webrtc-adapter only on the client
     import('webrtc-adapter').catch(err => {
       console.warn('WebRTC adapter chunk failed to load. This might be due to a server restart. Refresh the page to fix.', err);
@@ -78,6 +86,17 @@ export default function ChatApp() {
     const timer = setTimeout(() => {
       setIsSplashLoading(false);
       console.log('✨ [ChatApp Mount] Сплэш-экран отработал. Переход к отображению чата.');
+      if (typeof document !== 'undefined') {
+        const splash = document.getElementById('zaychat-boot-splash');
+        if (splash) {
+          splash.style.transition = 'opacity 0.3s ease';
+          splash.style.opacity = '0';
+          splash.style.pointerEvents = 'none';
+          setTimeout(() => {
+            splash.remove();
+          }, 350);
+        }
+      }
     }, 600);
     return () => clearTimeout(timer);
   }, []);
@@ -329,36 +348,17 @@ export default function ChatApp() {
   }, [user]);
 
   if (isSplashLoading || !user) {
-    return (
-      <div className="fixed inset-0 bg-neutral-950 text-white flex flex-col items-center justify-center p-4 z-50 overflow-y-auto">
-        <div className="relative mb-5 shrink-0">
-          <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/30 animate-pulse">
-            <span className="text-2xl font-bold">Z</span>
-          </div>
-          <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-4 border-neutral-950 animate-ping" />
-        </div>
-        <h1 className="text-xl font-semibold tracking-tight mb-1 text-center">ZayChat</h1>
-        <p className="text-neutral-400 text-sm mb-3 animate-pulse text-center">
-          Защищенное соединение по HTTPS...
-        </p>
-        <div className="w-48 h-1 bg-neutral-800 rounded-full overflow-hidden mb-3 shrink-0">
-          <div className="w-full h-full bg-indigo-500 animate-pulse" />
-        </div>
-
-        {/* Live on-screen diagnostic terminal */}
-        <DiagnosticTerminal 
-          onForceEnter={user ? () => setIsSplashLoading(false) : undefined} 
-        />
-
-        {loadingTimeout && (
-          <div className="flex flex-col items-center gap-3 mt-4 text-center">
+    if (loadingTimeout && !user) {
+      return (
+        <div className="fixed inset-0 bg-neutral-950 text-white flex flex-col items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="flex flex-col items-center gap-3 text-center max-w-sm">
             <p className="text-xs text-amber-400/90 max-w-xs">
-              Связь с сервером занимает больше времени, чем обычно. Вы можете открыть журнал загрузки выше или сбросить сессию.
+              Связь с сервером занимает больше времени, чем обычно. Вы можете обновить страницу или войти заново.
             </p>
             <div className="flex items-center gap-2">
               <button 
                 onClick={() => window.location.reload()}
-                className="px-3 py-1.5 text-xs font-medium bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg transition-colors"
+                className="px-3 py-1.5 text-xs font-medium bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg transition-colors cursor-pointer"
               >
                 Обновить страницу
               </button>
@@ -368,15 +368,16 @@ export default function ChatApp() {
                   safeLocalStorage.removeItem('user');
                   window.location.href = '/login';
                 }}
-                className="px-3 py-1.5 text-xs font-medium bg-neutral-800 hover:bg-rose-950/50 text-rose-300 rounded-lg transition-colors"
+                className="px-3 py-1.5 text-xs font-medium bg-neutral-800 hover:bg-rose-950/50 text-rose-300 rounded-lg transition-colors cursor-pointer"
               >
                 Сбросить сессию
               </button>
             </div>
           </div>
-        )}
-      </div>
-    );
+        </div>
+      );
+    }
+    return null;
   }
 
   return (

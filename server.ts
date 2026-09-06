@@ -32,6 +32,7 @@ const originalFork = cp.fork;
 
 import { parse } from 'url';
 import express from 'express';
+import compression from 'compression';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import next from 'next';
@@ -75,6 +76,7 @@ app.prepare().then(() => {
   });
 
   console.log('Setting up Express middleware...');
+  server.use(compression());
   server.use((req, res, next) => {
     const url = req.url || '';
     // Skip static assets and chunks to reduce noise and false error triggers
