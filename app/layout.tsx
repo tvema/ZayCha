@@ -292,6 +292,12 @@ export default function RootLayout({
                 console.log('🚀 [Boot 1/5] HTML получен браузером. Путь: ' + path);
                 console.log('🔑 [Boot 2/5] Проверка localStorage: token=' + (token ? 'ЕСТЬ' : 'НЕТ') + ', user=' + (user ? 'ЕСТЬ' : 'НЕТ'));
 
+                if (isRoot && !token) {
+                  console.log('🔀 [Boot] Сессия не найдена, ранний переход на /login...');
+                  window.location.replace('/login');
+                  return;
+                }
+
                 var chunkRetries = {};
                 function retryScriptTag(src) {
                   if (!src) return;
