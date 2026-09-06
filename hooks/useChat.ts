@@ -637,6 +637,41 @@ export function useChat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handleLogout, fetchContacts, fetchGroups, fetchContactCircles, fetchReminders]);
 
+  // Polling fallback when socket is disconnected (e.g., mobile carrier blocks WebSockets)
+  useEffect(() => {
+    if (!socket || !token) return;
+    
+    const interval = setInterval(() => {
+      if (!socket.connected) {
+        const activeId = activeContact?.id || activeGroup?.id;
+        if (!activeId) return;
+        
+        const lastMsg = messages[messages.length - 1];
+        const afterTime = lastMsg ? lastMsg.created_at : new Date(Date.now() - 3600000).toISOString();
+        
+        fetch(`/api/messages/${activeId}?isGroup=${!!activeGroup}&after=${encodeURIComponent(afterTime)}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        .then(res => res.json())
+        .then(newMsgs => {
+          if (Array.isArray(newMsgs) && newMsgs.length > 0) {
+            setMessages((prev: any[]) => {
+              const existingIds = new Set(prev.map(m => m.id));
+              const trulyNew = newMsgs.filter(m => !existingIds.has(m.id));
+              if (trulyNew.length === 0) return prev;
+              console.log('[PollingFallback] Received new messages via HTTPS poll:', trulyNew.length);
+              playMessageSound(false);
+              return [...prev, ...trulyNew];
+            });
+          }
+        })
+        .catch(() => {});
+      }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [socket, token, activeContact, activeGroup, messages, setMessages, playMessageSound]);
+
   const appViewRef = useRef(appView);
   useEffect(() => { appViewRef.current = appView; }, [appView]);
 

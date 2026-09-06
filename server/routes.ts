@@ -17,6 +17,7 @@ import fs from 'fs';
 import path from 'path';
 import { sendEmail } from './mailer';
 import { setupAuthRoutes } from './routes/auth.js';
+import { sendPushNotification } from './push';
 
 let vapidKeys = { publicKey: process.env.VAPID_PUBLIC_KEY || '', privateKey: process.env.VAPID_PRIVATE_KEY || '' };
 const vapidPath = path.join(process.cwd(), 'vapid_keys.json');
@@ -876,6 +877,105 @@ export function setupRoutes(server: express.Express, io: any, connectedUsers: Ma
         (SELECT COUNT(*) FROM messages m WHERE m.group_id = g.id AND datetime(m.created_at) > datetime(COALESCE(gm.last_read_at, '1970-01-01'))) as unread_count
         FROM groups g JOIN group_members gm ON g.id = gm.group_id`).all();
       res.json(groups);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // REST fallback for sending messages when WebSockets are blocked by mobile carrier
+  server.post('/api/messages/send', authenticateToken, (req: any, res) => {
+    const userId = req.user.userId;
+    const { id, receiverId, groupId, content, replyTo, forwardedFrom, encryptionData, isMedia } = req.body;
+    const messageId = id || uuidv4();
+    
+    try {
+      let isBlacklisted = false;
+      let isDnd = false;
+      if (receiverId) {
+        const contactStatus = db.prepare(`
+          SELECT circle_type FROM contacts 
+          WHERE user_id = ? AND contact_id = ?
+        `).get(receiverId, userId) as any;
+        if (contactStatus) {
+          if (contactStatus.circle_type === 'blacklist') isBlacklisted = true;
+          if (contactStatus.circle_type === 'dnd') isDnd = true;
+        }
+      }
+
+      if (isBlacklisted) {
+        return res.status(403).json({ error: 'BLACKLISTED', reason: 'You are in the blacklist' });
+      }
+
+      const nowIso = new Date().toISOString();
+      db.prepare('INSERT INTO messages (id, sender_id, receiver_id, group_id, content, reply_to, forwarded_from, encryption_data, is_media, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
+        messageId, userId, receiverId || null, groupId || null, content, replyTo || null, forwardedFrom || null, encryptionData ? JSON.stringify(encryptionData) : null, isMedia ? 1 : 0, nowIso
+      );
+
+      const sender = db.prepare('SELECT username FROM users WHERE id = ?').get(userId) as any;
+      const forwardedFromUser = forwardedFrom ? db.prepare('SELECT username FROM users WHERE id = ?').get(forwardedFrom) as any : null;
+      
+      const message = {
+        id: messageId,
+        sender_id: userId,
+        sender_username: sender?.username || 'Unknown',
+        receiver_id: receiverId || null,
+        group_id: groupId || null,
+        content,
+        status: 'sent',
+        reply_to: replyTo || null,
+        forwarded_from: forwardedFrom || null,
+        forwarded_from_username: forwardedFromUser?.username || null,
+        encryption_data: encryptionData || null,
+        created_at: nowIso,
+        reactions: []
+      };
+
+      if (groupId) {
+        io.to(`group:${groupId}`).emit('message:new', message);
+        const members = db.prepare('SELECT user_id FROM group_members WHERE group_id = ?').all(groupId) as any[];
+        const group = db.prepare('SELECT name FROM groups WHERE id = ?').get(groupId) as any;
+        members.forEach((m) => {
+           if (m.user_id !== userId) {
+               let userAesKey = null;
+               if (encryptionData && encryptionData.encrypted_keys) {
+                   userAesKey = encryptionData.encrypted_keys[m.user_id];
+               } else if (encryptionData && encryptionData.keys) {
+                   userAesKey = encryptionData.keys[m.user_id];
+               }
+               const isSmallContent = content && content.length < 3000;
+               sendPushNotification(m.user_id, {
+                 title: `${group?.name || 'Групповой'}: ${sender?.username}`,
+                 body: encryptionData ? 'Новое зашифрованное сообщение 🔒' : (content.length > 50 ? content.substring(0, 50) + '...' : content),
+                 url: `/?group=${groupId}`,
+                 encryptedContent: (encryptionData && isSmallContent) ? content : undefined,
+                 encryptedAesKey: userAesKey,
+                 iv: encryptionData ? (encryptionData.iv || encryptionData.fileIv) : undefined,
+                 textIv: encryptionData ? (encryptionData.textIv) : undefined
+               });
+           }
+        });
+      } else if (receiverId) {
+        const receiverSockets = connectedUsers.get(receiverId);
+        if (receiverSockets && receiverSockets.size > 0) {
+          receiverSockets.forEach(socketId => io.to(socketId).emit('message:new', message));
+        }
+        let userAesKey = null;
+        if (encryptionData && encryptionData.keys) {
+            userAesKey = encryptionData.keys[receiverId];
+        }
+        const isSmallContent = content && content.length < 3000;
+        sendPushNotification(receiverId, {
+          title: `Сообщение от ${sender?.username}`,
+          body: encryptionData ? 'Новое зашифрованное сообщение 🔒' : (content.length > 50 ? content.substring(0, 50) + '...' : content),
+          url: `/?chat=${userId}`,
+          encryptedContent: (encryptionData && isSmallContent) ? content : undefined,
+          encryptedAesKey: userAesKey,
+          iv: encryptionData ? (encryptionData.iv || encryptionData.fileIv) : undefined,
+          textIv: encryptionData ? (encryptionData.textIv) : undefined
+        });
+      }
+
+      res.json({ success: true, message });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

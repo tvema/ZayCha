@@ -8,6 +8,35 @@ import { keyRing } from '@/lib/keyRing';
 export function useChatActions(token: string | null, activeContact: User | null, activeGroup: Group | null, messages: Message[], socket: any, user: User | null, groups: Group[], contacts: User[], setMessages: any, playMessageSound: (isIncoming: boolean) => void, chatFileInputRef: React.RefObject<HTMLInputElement | null>, replyingTo: Message | null, setReplyingTo: any, setShowEmojiPicker: any, forwardingMessage: Message | null, setShowForwardModal: any, setForwardingMessage: any) {
   const { showAlert } = useGlobalModal();
 
+  const sendOrFallback = (payload: any) => {
+    if (socket && socket.connected) {
+      socket.emit('message:send', payload);
+    } else {
+      console.log('[Fallback] Socket disconnected. Sending message:send via HTTPS REST API...');
+      fetch('/api/messages/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          console.log('[Fallback] Message sent successfully via HTTPS REST API');
+        } else {
+          console.error('[Fallback] Failed to send via HTTPS:', data.error);
+          showAlert(`Ошибка отправки через HTTPS: ${data.error || 'Unknown'}`);
+        }
+      })
+      .catch(err => {
+        console.error('[Fallback] Network error sending via HTTPS:', err);
+        showAlert('Ошибка сети при отправке сообщения через HTTPS.');
+      });
+    }
+  };
+
   const handleEditMessage = async (messageId: string, newContent: string) => {
     if (!socket || !newContent.trim()) return;
     
@@ -156,7 +185,7 @@ export function useChatActions(token: string | null, activeContact: User | null,
             is_media: 1
           } as any]);
 
-          socket.emit('message:send', {
+          sendOrFallback({
             id: tempId,
             receiverId: activeContact?.id || null,
             groupId: activeGroup?.id || null,
@@ -323,7 +352,7 @@ export function useChatActions(token: string | null, activeContact: User | null,
           socket.emit('group:read', { groupId: activeGroup.id });
         }
 
-        socket.emit('message:send', {
+        sendOrFallback({
           id: tempId,
           receiverId: activeContact?.id || null,
           groupId: activeGroup?.id || null,
@@ -463,7 +492,7 @@ export function useChatActions(token: string | null, activeContact: User | null,
         
         const encryptedTextBase64 = await encryptText(contentToForward, aesKey, textIv);
 
-        socket.emit('message:send', {
+        sendOrFallback({
           receiverId: isGroup ? null : recipientId,
           groupId: isGroup ? recipientId : null,
           content: encryptedTextBase64,
@@ -473,7 +502,7 @@ export function useChatActions(token: string | null, activeContact: User | null,
         });
       } else {
         // Plaintext forward (e.g. if target doesn't support E2EE yet)
-        socket.emit('message:send', {
+        sendOrFallback({
           receiverId: isGroup ? null : recipientId,
           groupId: isGroup ? recipientId : null,
           content: contentToForward,
