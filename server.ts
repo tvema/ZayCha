@@ -1,60 +1,32 @@
 import cp from 'child_process';
 
-// Security Audit & Active Defense Interceptor: Block any suspicious process spawning from dependencies
+// Security Audit Interceptor: Log and trace any process spawning from dependencies or code
 const originalSpawn = cp.spawn;
 const originalExec = cp.exec;
 const originalExecSync = cp.execSync;
 const originalFork = cp.fork;
 
-function isSuspicious(cmd: any): boolean {
-  const str = Array.isArray(cmd) ? cmd.join(' ') : String(cmd || '');
-  const lower = str.toLowerCase();
-  if (
-    lower.includes('/.') || 
-    lower.includes('\\.') || 
-    lower.includes('/tmp/') || 
-    lower.includes('\\tmp\\') ||
-    lower.includes('upx') ||
-    (lower.includes('pm2') && !lower.includes('node_modules'))
-  ) {
-    return true;
-  }
-  return false;
-}
-
 (cp as any).spawn = function(...args: any[]) {
-  if (isSuspicious(args[0]) || isSuspicious(args[1])) {
-    console.error('🚨 [BLOCKED MALICIOUS SPAWN] Attempted to spawn suspicious process:', args[0], args[1]);
-    console.trace('Malicious spawn stack trace:');
-    throw new Error('Security policy violation: Unauthorized process execution blocked.');
-  }
+  console.error('⚠️ [SECURITY AUDIT] child_process.spawn called with:', args[0], args[1]);
+  console.trace('Stack trace for spawn:');
   return originalSpawn.apply(this, args as any);
 };
 
 (cp as any).exec = function(...args: any[]) {
-  if (isSuspicious(args[0])) {
-    console.error('🚨 [BLOCKED MALICIOUS EXEC] Attempted to execute suspicious command:', args[0]);
-    console.trace('Malicious exec stack trace:');
-    throw new Error('Security policy violation: Unauthorized command execution blocked.');
-  }
+  console.error('⚠️ [SECURITY AUDIT] child_process.exec called with:', args[0]);
+  console.trace('Stack trace for exec:');
   return originalExec.apply(this, args as any);
 };
 
 (cp as any).execSync = function(...args: any[]) {
-  if (isSuspicious(args[0])) {
-    console.error('🚨 [BLOCKED MALICIOUS EXEC_SYNC] Attempted to execute suspicious command synchronously:', args[0]);
-    console.trace('Malicious execSync stack trace:');
-    throw new Error('Security policy violation: Unauthorized synchronous command execution blocked.');
-  }
+  console.error('⚠️ [SECURITY AUDIT] child_process.execSync called with:', args[0]);
+  console.trace('Stack trace for execSync:');
   return originalExecSync.apply(this, args as any);
 };
 
 (cp as any).fork = function(...args: any[]) {
-  if (isSuspicious(args[0])) {
-    console.error('🚨 [BLOCKED MALICIOUS FORK] Attempted to fork suspicious module:', args[0]);
-    console.trace('Malicious fork stack trace:');
-    throw new Error('Security policy violation: Unauthorized fork blocked.');
-  }
+  console.error('⚠️ [SECURITY AUDIT] child_process.fork called with:', args[0]);
+  console.trace('Stack trace for fork:');
   return originalFork.apply(this, args as any);
 };
 
@@ -103,6 +75,15 @@ app.prepare().then(() => {
   });
 
   console.log('Setting up Express middleware...');
+  server.use((req, res, next) => {
+    const url = req.url || '';
+    // Skip static assets and chunks to reduce noise and false error triggers
+    if (!url.includes('/_next/static') && !url.includes('/favicon.ico')) {
+      const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+      console.log(`[REQ] ${req.method} ${url} | IP: ${ip}`);
+    }
+    next();
+  });
   server.use(express.json({ limit: '50mb' }));
   server.use(express.urlencoded({ limit: '50mb', extended: true }));
   // Serve static files from public folder (sw.js, manifest.json, etc.)

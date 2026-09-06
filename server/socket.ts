@@ -17,17 +17,45 @@ const deleteActiveCall = (id: string) => {
 export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<string>>) {
   io.use((socket, next) => {
     const token = socket.handshake.auth.token;
-    if (!token) return next(new Error('Authentication error'));
+    const clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
+    console.log(`🔌 [SOCKET HANDSHAKE] Attempt from IP: ${clientIp}, Transport: ${socket.conn.transport.name}, Query:`, socket.handshake.query);
+    
+    if (!token) {
+      console.warn(`❌ [SOCKET AUTH FAILED] No token provided in handshake auth from IP: ${clientIp}`);
+      return next(new Error('Authentication error: No token'));
+    }
     
     jwt.verify(token, JWT_SECRET, (err: any, decoded: any) => {
-      if (err) return next(new Error('Authentication error'));
+      if (err) {
+        console.warn(`❌ [SOCKET AUTH FAILED] Invalid token from IP ${clientIp}:`, err.message);
+        return next(new Error('Authentication error: Invalid token'));
+      }
       socket.data.userId = decoded.userId;
+      console.log(`✅ [SOCKET AUTH SUCCESS] User ID: ${decoded.userId} authenticated from IP: ${clientIp}`);
       next();
     });
   });
 
   io.on('connection', (socket) => {
     const userId = socket.data.userId;
+    const clientIp = socket.handshake.headers['x-forwarded-for'] || socket.handshake.address;
+    console.log(`🟢 [SOCKET CONNECTED] Socket ID: ${socket.id}, User ID: ${userId}, IP: ${clientIp}, Transport: ${socket.conn.transport.name}`);
+
+    socket.conn.on('upgrade', (transport: any) => {
+      console.log(`⬆️ [SOCKET UPGRADE] Socket ID: ${socket.id} upgraded to transport: ${transport.name}`);
+    });
+
+    socket.conn.on('packet', (packet: any) => {
+      // Uncomment for raw packet debugging if needed: console.log(`📦 [SOCKET PACKET] Socket ID: ${socket.id} type: ${packet.type}`);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log(`🔴 [SOCKET DISCONNECTED] Socket ID: ${socket.id}, User ID: ${userId}, Reason: ${reason}`);
+    });
+
+    socket.on('error', (err) => {
+      console.error(`⚠️ [SOCKET ERROR] Socket ID: ${socket.id}, User ID: ${userId}, Error:`, err);
+    });
     
     if (!connectedUsers.has(userId)) {
       connectedUsers.set(userId, new Set());

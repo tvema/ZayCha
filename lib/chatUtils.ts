@@ -117,7 +117,7 @@ export const generatePdfMetadata = async (file: File): Promise<{ width: number, 
          resolve({ width: 0, height: 0 });
          return;
       }
-      const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+      const pdfjsLib = await (new Function('return import("pdfjs-dist/legacy/build/pdf.mjs")')());
       if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
         pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
       }
