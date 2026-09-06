@@ -272,9 +272,8 @@ export function setupUserRoutes(server: express.Express, io: any, connectedUsers
               FROM contacts
               WHERE contact_id = ? AND circle_type = 'blacklist'
           ) bl ON u.id = bl.peer_id
-          WHERE (c.contact_id IS NOT NULL OR lm.peer_id IS NOT NULL)
-          AND u.id != 'system'
-        `).all(req.user.userId, req.user.userId, req.user.userId, req.user.userId, req.user.userId, req.user.userId);
+          WHERE u.id != 'system'
+        `).all(req.user.userId, req.user.userId, req.user.userId, req.user.userId, req.user.userId);
         
         // Filter out the current user from the results
         contacts = contacts.filter((c: any) => c.id !== req.user.userId);
