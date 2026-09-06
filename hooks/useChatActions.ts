@@ -12,7 +12,7 @@ export function useChatActions(token: string | null, activeContact: User | null,
     if (socket && socket.connected) {
       socket.emit('message:send', payload);
     } else {
-      console.log('[Fallback] Socket disconnected. Sending message:send via HTTPS REST API...');
+      console.log('[Fallback] Socket not connected. Sending message:send via HTTPS REST API...');
       fetch('/api/messages/send', {
         method: 'POST',
         headers: {
@@ -25,20 +25,22 @@ export function useChatActions(token: string | null, activeContact: User | null,
       .then(data => {
         if (data.success) {
           console.log('[Fallback] Message sent successfully via HTTPS REST API');
+          // Optimistically ensure status is marked 'sent'
+          setMessages((prev: Message[]) => prev.map(m => m.id === payload.id ? { ...m, status: 'sent' } : m));
         } else {
           console.error('[Fallback] Failed to send via HTTPS:', data.error);
-          showAlert(`Ошибка отправки через HTTPS: ${data.error || 'Unknown'}`);
+          showAlert(`Ошибка отправки: ${data.error || 'Unknown'}`);
         }
       })
       .catch(err => {
         console.error('[Fallback] Network error sending via HTTPS:', err);
-        showAlert('Ошибка сети при отправке сообщения через HTTPS.');
+        showAlert('Ошибка сети при отправке сообщения.');
       });
     }
   };
 
   const handleEditMessage = async (messageId: string, newContent: string) => {
-    if (!socket || !newContent.trim()) return;
+    if (!newContent.trim()) return;
     
     const msg = messages.find((m: Message) => m.id === messageId);
     let finalContent = newContent;
@@ -81,27 +83,71 @@ export function useChatActions(token: string | null, activeContact: User | null,
       }
     }
 
-    socket.emit('message:edit', {
+    // Immediately update local message in UI
+    setMessages((prev: Message[]) => prev.map(m => m.id === messageId ? {
+      ...m,
+      content: newContent,
+      is_edited: true,
+      encryption_data: finalEncryptionData
+    } : m));
+
+    const payload = {
       messageId,
       content: finalContent,
       encryptionData: finalEncryptionData,
       chatId: activeContact?.id || null,
       groupId: activeGroup?.id || null
-    });
+    };
+
+    if (socket && socket.connected) {
+      socket.emit('message:edit', payload);
+    } else {
+      fetch('/api/messages/edit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      }).catch(err => {
+        console.error('Failed to edit message via HTTPS:', err);
+      });
+    }
   };
 
   const handleDeleteMessage = (messageId: string) => {
-    if (!socket) return;
-    socket.emit('message:delete', {
+    // Immediately update local message in UI
+    setMessages((prev: Message[]) => prev.map(m => m.id === messageId ? {
+      ...m,
+      is_deleted: true,
+      content: 'message_deleted'
+    } : m));
+
+    const payload = {
       messageId,
       chatId: activeContact?.id || null,
       groupId: activeGroup?.id || null
-    });
+    };
+
+    if (socket && socket.connected) {
+      socket.emit('message:delete', payload);
+    } else {
+      fetch('/api/messages/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      }).catch(err => {
+        console.error('Failed to delete message via HTTPS:', err);
+      });
+    }
   };
 
   const handleSendMessage = async (content: string, rawFile?: File, sendAsOriginal?: boolean, forceUnencrypted: boolean = false) => {
     setShowEmojiPicker(false);
-    if ((!content.trim() && !rawFile) || (!activeContact && !activeGroup) || !socket) return;
+    if ((!content.trim() && !rawFile) || (!activeContact && !activeGroup)) return;
     
     let file = rawFile;
     if (file && !sendAsOriginal) {
@@ -377,7 +423,7 @@ export function useChatActions(token: string | null, activeContact: User | null,
   };
 
   const handleForward = async (recipientId: string, isGroup: boolean) => {
-    if (!forwardingMessage || !socket) return;
+    if (!forwardingMessage) return;
 
     try {
       // Find the recipient contact or group to check for E2EE

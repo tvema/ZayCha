@@ -1,7 +1,30 @@
 import { create } from 'zustand';
 import { User, Group, Message } from '@/types/chat';
+import { safeLocalStorage } from '@/lib/safeStorage';
 
 type Setter<T> = (updater: T | ((prev: T) => T)) => void;
+
+function getInitialUser(): User | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = safeLocalStorage.getItem('user');
+    if (!raw || raw === 'undefined' || raw === 'null') return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    return null;
+  }
+}
+
+function getInitialToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = safeLocalStorage.getItem('token');
+    if (!raw || raw === 'undefined' || raw === 'null') return null;
+    return raw;
+  } catch (e) {
+    return null;
+  }
+}
 
 interface ChatState {
   user: User | null;
@@ -48,8 +71,8 @@ interface ChatState {
 }
 
 export const useChatStore = create<ChatState>((set) => ({
-  user: null,
-  token: null,
+  user: getInitialUser(),
+  token: getInitialToken(),
   contacts: [],
   groups: [],
   contactCircles: [],

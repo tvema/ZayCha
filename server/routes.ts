@@ -981,6 +981,161 @@ export function setupRoutes(server: express.Express, io: any, connectedUsers: Ma
     }
   });
 
+  // REST endpoint for editing messages (used for mobile and HTTP fallback)
+  server.post('/api/messages/edit', authenticateToken, (req: any, res) => {
+    const userId = req.user.userId;
+    const { messageId, content, encryptionData, chatId, groupId } = req.body;
+    try {
+      const msg = db.prepare('SELECT sender_id FROM messages WHERE id = ?').get(messageId) as any;
+      if (!msg) {
+        return res.status(404).json({ error: 'Message not found' });
+      }
+      if (msg.sender_id !== userId) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+
+      if (encryptionData) {
+        db.prepare('UPDATE messages SET content = ?, encryption_data = ?, is_edited = 1 WHERE id = ?').run(content, JSON.stringify(encryptionData), messageId);
+      } else {
+        db.prepare('UPDATE messages SET content = ?, is_edited = 1 WHERE id = ?').run(content, messageId);
+      }
+
+      const updateData = { messageId, content, encryption_data: encryptionData || null, is_edited: true, chatId, groupId };
+
+      if (groupId) {
+        io.to(`group:${groupId}`).emit('message:edited', updateData);
+      } else if (chatId) {
+        const receiverSockets = connectedUsers.get(chatId);
+        if (receiverSockets) {
+          receiverSockets.forEach(socketId => io.to(socketId).emit('message:edited', updateData));
+        }
+        const senderSockets = connectedUsers.get(userId);
+        if (senderSockets) {
+          senderSockets.forEach(socketId => io.to(socketId).emit('message:edited', updateData));
+        }
+      }
+
+      res.json({ success: true, updateData });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // REST endpoint for deleting messages (used for mobile and HTTP fallback)
+  server.post('/api/messages/delete', authenticateToken, (req: any, res) => {
+    const userId = req.user.userId;
+    const { messageId, chatId, groupId } = req.body;
+    try {
+      const msg = db.prepare('SELECT sender_id FROM messages WHERE id = ?').get(messageId) as any;
+      if (!msg) {
+        return res.status(404).json({ error: 'Message not found' });
+      }
+      if (msg.sender_id !== userId) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+
+      db.prepare("UPDATE messages SET is_deleted = 1, content = 'message_deleted', encryption_data = NULL WHERE id = ?").run(messageId);
+      db.prepare('DELETE FROM reactions WHERE message_id = ?').run(messageId);
+
+      const deleteData = { messageId, chatId, groupId };
+
+      if (groupId) {
+        io.to(`group:${groupId}`).emit('message:deleted', deleteData);
+      } else if (chatId) {
+        const receiverSockets = connectedUsers.get(chatId);
+        if (receiverSockets) {
+          receiverSockets.forEach(socketId => io.to(socketId).emit('message:deleted', deleteData));
+        }
+        const senderSockets = connectedUsers.get(userId);
+        if (senderSockets) {
+          senderSockets.forEach(socketId => io.to(socketId).emit('message:deleted', deleteData));
+        }
+      }
+
+      res.json({ success: true, deleteData });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // REST endpoint for reacting to messages (used for mobile and HTTP fallback)
+  server.post('/api/messages/react', authenticateToken, (req: any, res) => {
+    const userId = req.user.userId;
+    const { messageId, emoji } = req.body;
+    try {
+      const existing = db.prepare('SELECT id FROM reactions WHERE message_id = ? AND user_id = ? AND emoji = ?').get(messageId, userId, emoji) as any;
+      
+      if (existing) {
+        db.prepare('DELETE FROM reactions WHERE id = ?').run(existing.id);
+        const msg = db.prepare('SELECT sender_id, receiver_id, group_id FROM messages WHERE id = ?').get(messageId) as any;
+        if (msg) {
+          const update = { message_id: messageId, user_id: userId, emoji, removed: true };
+          if (msg.group_id) {
+            io.to(`group:${msg.group_id}`).emit('reaction:update', update);
+          } else {
+            const s1 = connectedUsers.get(msg.sender_id);
+            const s2 = connectedUsers.get(msg.receiver_id);
+            if (s1) s1.forEach(socketId => io.to(socketId).emit('reaction:update', update));
+            if (s2 && s2 !== s1) s2.forEach(socketId => io.to(socketId).emit('reaction:update', update));
+          }
+        }
+        res.json({ success: true, action: 'removed', emoji });
+      } else {
+        const reactionId = uuidv4();
+        db.prepare('INSERT INTO reactions (id, message_id, user_id, emoji) VALUES (?, ?, ?, ?)').run(
+          reactionId, messageId, userId, emoji
+        );
+        const reaction = { id: reactionId, message_id: messageId, user_id: userId, emoji };
+        const msg = db.prepare('SELECT sender_id, receiver_id, group_id FROM messages WHERE id = ?').get(messageId) as any;
+        if (msg) {
+          if (msg.group_id) {
+            io.to(`group:${msg.group_id}`).emit('reaction:new', reaction);
+          } else {
+            const s1 = connectedUsers.get(msg.sender_id);
+            const s2 = connectedUsers.get(msg.receiver_id);
+            if (s1) s1.forEach(socketId => io.to(socketId).emit('reaction:new', reaction));
+            if (s2 && s2 !== s1) s2.forEach(socketId => io.to(socketId).emit('reaction:new', reaction));
+          }
+        }
+        res.json({ success: true, action: 'added', reaction });
+      }
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // REST endpoint for marking messages as read (used for mobile and HTTP fallback)
+  server.post('/api/messages/read', authenticateToken, (req: any, res) => {
+    const userId = req.user.userId;
+    const { contactId, groupId } = req.body;
+    try {
+      if (contactId) {
+        const unreadMessages = db.prepare(`SELECT id FROM messages WHERE sender_id = ? AND receiver_id = ? AND status != 'read'`).all(contactId, userId) as { id: string }[];
+        if (unreadMessages.length > 0) {
+          const updatedIds = unreadMessages.map(u => u.id);
+          db.prepare(`UPDATE messages SET status = 'read' WHERE sender_id = ? AND receiver_id = ? AND status != 'read'`).run(contactId, userId);
+          const senderSockets = connectedUsers.get(contactId);
+          if (senderSockets) {
+            senderSockets.forEach(socketId => io.to(socketId).emit('message:status_update', { messageIds: updatedIds, status: 'read' }));
+          }
+        }
+      } else if (groupId) {
+        const lastRead = db.prepare('SELECT last_read_at FROM group_members WHERE group_id = ? AND user_id = ?').get(groupId, userId) as any;
+        const lastReadTime = lastRead?.last_read_at || '1970-01-01';
+        const nowIso = new Date().toISOString();
+        db.prepare('UPDATE group_members SET last_read_at = ? WHERE group_id = ? AND user_id = ?').run(nowIso, groupId, userId);
+        db.prepare(`
+          INSERT OR IGNORE INTO message_reads (message_id, user_id) 
+          SELECT id, ? FROM messages 
+          WHERE group_id = ? AND sender_id != ? AND datetime(created_at) > datetime(?)
+        `).run(userId, groupId, userId, lastReadTime);
+      }
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
  // Fallback for Share Target if Service Worker is not active or hasn't intercepted the POST
   server.post('/share-target', upload.any(), (req, res) => {
     let redirectUrl = '/?shared=true';

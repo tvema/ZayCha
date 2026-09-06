@@ -303,11 +303,11 @@ export default function ChatApp() {
       if (!user) {
         setLoadingTimeout(true);
       }
-    }, 10000);
+    }, 3500);
     return () => clearTimeout(timer);
   }, [user]);
 
-  if (isSplashLoading) {
+  if (isSplashLoading || !user) {
     return (
       <div className="fixed inset-0 bg-neutral-950 text-white flex flex-col items-center justify-center p-6 z-50">
         <div className="relative mb-6">
@@ -317,17 +317,24 @@ export default function ChatApp() {
           <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full border-4 border-neutral-950 animate-ping" />
         </div>
         <h1 className="text-xl font-semibold tracking-tight mb-2">ZayChat</h1>
-        <p className="text-neutral-400 text-sm mb-6 animate-pulse">Защищенное соединение с сервером...</p>
+        <p className="text-neutral-400 text-sm mb-6 animate-pulse">Защищенное соединение по HTTPS...</p>
         <div className="w-48 h-1 bg-neutral-800 rounded-full overflow-hidden">
           <div className="w-full h-full bg-indigo-500" />
         </div>
         {loadingTimeout && (
-          <button 
-            onClick={() => window.location.href = '/login'}
-            className="mt-6 text-xs text-indigo-400 hover:underline"
-          >
-            Войти заново / Сбросить сессию
-          </button>
+          <div className="flex flex-col items-center gap-3 mt-6">
+            <p className="text-xs text-neutral-400">Соединение занимает больше времени, чем обычно</p>
+            <button 
+              onClick={() => {
+                safeLocalStorage.removeItem('token');
+                safeLocalStorage.removeItem('user');
+                window.location.href = '/login';
+              }}
+              className="px-4 py-2 text-xs font-medium bg-neutral-800 hover:bg-neutral-700 text-neutral-200 rounded-lg transition-colors"
+            >
+              Войти заново / Сбросить сессию
+            </button>
+          </div>
         )}
       </div>
     );

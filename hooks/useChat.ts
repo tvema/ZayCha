@@ -33,6 +33,7 @@ import { useChatContacts } from './useChatContacts';
 import { useUserKeys } from './useUserKeys';
 
 import { getCachedMessages, setCachedMessages, clearCache } from '@/lib/dbCache';
+import { isMobileConnection } from '@/lib/isMobileConnection';
 
 import { useChatStore } from '@/store/chatStore';
 
@@ -585,6 +586,13 @@ export function useChat() {
     fetchContactCircles();
     fetchReminders();
 
+    const isMobile = isMobileConnection();
+    if (isMobile) {
+      console.log('[MobileConnectionLog] 📱 Mobile connection detected: WebSockets completely bypassed. Running pure HTTPS mode.');
+      setSocket(null);
+      return;
+    }
+
     console.log('[MobileConnectionLog] Initializing Socket.io connection...');
     console.log('[MobileConnectionLog] navigator.onLine:', navigator.onLine);
     const conn = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
@@ -637,40 +645,93 @@ export function useChat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handleLogout, fetchContacts, fetchGroups, fetchContactCircles, fetchReminders]);
 
-  // Polling fallback when socket is disconnected (e.g., mobile carrier blocks WebSockets)
+  // Continuous HTTPS message polling for mobile or disconnected socket
   useEffect(() => {
-    if (!socket || !token) return;
-    
-    const interval = setInterval(() => {
-      if (!socket.connected) {
-        const activeId = activeContact?.id || activeGroup?.id;
-        if (!activeId) return;
-        
-        const lastMsg = messages[messages.length - 1];
+    if (!token) return;
+
+    let isPolling = false;
+    const interval = setInterval(async () => {
+      if (socket && socket.connected) return;
+      if (isPolling) return;
+
+      const activeId = activeContactIdRef.current || activeGroupIdRef.current;
+      if (!activeId) return;
+
+      isPolling = true;
+      try {
+        const isGroup = !!activeGroupIdRef.current;
+        const currentMsgs = useChatStore.getState().messages;
+        const currentChatMsgs = currentMsgs.filter((m: Message) => 
+          isGroup ? m.group_id === activeId : (!m.group_id || String(m.group_id) === 'null') && (m.sender_id === activeId || m.receiver_id === activeId)
+        );
+        const lastMsg = currentChatMsgs[currentChatMsgs.length - 1];
         const afterTime = lastMsg ? lastMsg.created_at : new Date(Date.now() - 3600000).toISOString();
-        
-        fetch(`/api/messages/${activeId}?isGroup=${!!activeGroup}&after=${encodeURIComponent(afterTime)}`, {
+
+        const res = await fetch(`/api/messages/${activeId}?isGroup=${isGroup}&after=${encodeURIComponent(afterTime)}`, {
           headers: { 'Authorization': `Bearer ${token}` }
-        })
-        .then(res => res.json())
-        .then(newMsgs => {
-          if (Array.isArray(newMsgs) && newMsgs.length > 0) {
-            setMessages((prev: any[]) => {
-              const existingIds = new Set(prev.map(m => m.id));
-              const trulyNew = newMsgs.filter(m => !existingIds.has(m.id));
-              if (trulyNew.length === 0) return prev;
-              console.log('[PollingFallback] Received new messages via HTTPS poll:', trulyNew.length);
-              playMessageSound(false);
-              return [...prev, ...trulyNew];
+        });
+
+        if (res.ok) {
+          const rawData = await res.json();
+          if (Array.isArray(rawData) && rawData.length > 0) {
+            const decryptedBatch = await Promise.all(
+              rawData.map((msg: Message) => decryptMessageIfNeeded(msg, userRef.current?.id, groupsRef.current))
+            );
+
+            setMessages((prev: Message[]) => {
+              const currentActive = activeContactIdRef.current || activeGroupIdRef.current;
+              if (currentActive !== activeId) return prev;
+
+              const existingMap = new Map<string, Message>();
+              prev.forEach(m => existingMap.set(m.id, m));
+
+              let hasNewIncoming = false;
+              for (const m of decryptedBatch) {
+                if (!existingMap.has(m.id)) {
+                  existingMap.set(m.id, m);
+                  if (m.sender_id !== userRef.current?.id) {
+                    hasNewIncoming = true;
+                  }
+                } else {
+                  existingMap.set(m.id, { ...existingMap.get(m.id)!, ...m });
+                }
+              }
+
+              if (hasNewIncoming) {
+                playMessageSound(false);
+              }
+
+              const merged = Array.from(existingMap.values()).sort((a, b) => a.created_at.localeCompare(b.created_at));
+              const chatMessagesToCache = merged.filter(m => 
+                isGroup ? m.group_id === activeId : (!m.group_id || String(m.group_id) === 'null') && (m.sender_id === activeId || m.receiver_id === activeId)
+              );
+              setCachedMessages(activeId, chatMessagesToCache);
+              return merged;
             });
           }
-        })
-        .catch(() => {});
+        }
+      } catch (err) {
+        // Polling error non-fatal
+      } finally {
+        isPolling = false;
       }
-    }, 4000);
+    }, 2000);
 
     return () => clearInterval(interval);
-  }, [socket, token, activeContact, activeGroup, messages, setMessages, playMessageSound]);
+  }, [token, socket, playMessageSound, setMessages]);
+
+  // Periodic sync of contacts and groups unread counts when on HTTP mode
+  useEffect(() => {
+    if (!token) return;
+
+    const syncInterval = setInterval(() => {
+      if (socket && socket.connected) return;
+      fetchContacts();
+      fetchGroups();
+    }, 5000);
+
+    return () => clearInterval(syncInterval);
+  }, [token, socket, fetchContacts, fetchGroups]);
 
   const appViewRef = useRef(appView);
   useEffect(() => { appViewRef.current = appView; }, [appView]);
@@ -1142,12 +1203,38 @@ export function useChat() {
 
   const handleReaction = (emojiData: any, overrideId?: string) => {
     const targetId = overrideId || reactionMessageId;
-    if (!targetId || !socket) return;
+    if (!targetId) return;
     
-    socket.emit('message:react', {
-      messageId: targetId,
-      emoji: emojiData.emoji || emojiData
-    });
+    const emoji = emojiData.emoji || emojiData;
+
+    // Optimistically update reactions in local state
+    if (user) {
+      setMessages(prev => prev.map(m => {
+        if (m.id !== targetId) return m;
+        const currentReactions = m.reactions || [];
+        const existingIdx = currentReactions.findIndex(r => r.user_id === user.id && r.emoji === emoji);
+        let updated;
+        if (existingIdx >= 0) {
+          updated = currentReactions.filter((_, idx) => idx !== existingIdx);
+        } else {
+          updated = [...currentReactions, { id: 'temp-' + Date.now(), message_id: targetId, user_id: user.id, emoji }];
+        }
+        return { ...m, reactions: updated };
+      }));
+    }
+    
+    if (socket && socket.connected) {
+      socket.emit('message:react', {
+        messageId: targetId,
+        emoji
+      });
+    } else {
+      fetch('/api/messages/react', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ messageId: targetId, emoji })
+      }).catch(err => console.error('Failed to react via HTTPS:', err));
+    }
     
     setReactionMessageId(null);
   };
@@ -1200,19 +1287,34 @@ export function useChat() {
   }, []);
 
   const markChatAsRead = useCallback(() => {
-    if (!socket) return;
     if (activeContact) {
-      socket.emit('contact:read', { contactId: activeContact.id });
+      if (socket && socket.connected) {
+        socket.emit('contact:read', { contactId: activeContact.id });
+      } else {
+        fetch('/api/messages/read', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ contactId: activeContact.id })
+        }).catch(() => {});
+      }
       setContacts(prev => prev.map(c => 
         c.id === activeContact.id ? { ...c, unread_count: 0 } : c
       ));
     } else if (activeGroup) {
-      socket.emit('group:read', { groupId: activeGroup.id });
+      if (socket && socket.connected) {
+        socket.emit('group:read', { groupId: activeGroup.id });
+      } else {
+        fetch('/api/messages/read', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ groupId: activeGroup.id })
+        }).catch(() => {});
+      }
       setGroups(prev => prev.map(g => 
         g.id === activeGroup.id ? { ...g, unread_count: 0 } : g
       ));
     }
-  }, [socket, activeContact?.id, activeGroup?.id, setContacts, setGroups]);
+  }, [socket, token, activeContact?.id, activeGroup?.id, setContacts, setGroups]);
 
   return {
     user,
