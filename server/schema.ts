@@ -207,6 +207,9 @@ export function initializeDatabase(db: Database) {
     CREATE INDEX IF NOT EXISTS idx_messages_group_id ON messages(group_id);
     CREATE INDEX IF NOT EXISTS idx_messages_group_created ON messages(group_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
+    CREATE INDEX IF NOT EXISTS idx_messages_receiver_status ON messages(receiver_id, status);
+    CREATE INDEX IF NOT EXISTS idx_messages_sender_created ON messages(sender_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_messages_receiver_created ON messages(receiver_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id ON push_subscriptions(user_id);
     CREATE INDEX IF NOT EXISTS idx_group_members_user_id ON group_members(user_id);
   `);
