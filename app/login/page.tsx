@@ -21,6 +21,10 @@ export default function Login() {
 
   useEffect(() => {
     setMounted(true);
+    if (typeof document !== 'undefined') {
+      const splash = document.getElementById('zaychat-boot-splash');
+      if (splash) splash.remove();
+    }
     const token = safeLocalStorage.getItem('token');
     const user = safeLocalStorage.getItem('user');
     const savedUser = safeLocalStorage.getItem('saved_username');

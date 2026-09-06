@@ -25,6 +25,10 @@ export default function Register() {
 
   useEffect(() => {
     setMounted(true);
+    if (typeof document !== 'undefined') {
+      const splash = document.getElementById('zaychat-boot-splash');
+      if (splash) splash.remove();
+    }
   }, []);
 
   useEffect(() => {

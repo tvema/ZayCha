@@ -68,8 +68,8 @@ export default function ChatApp() {
     const u = safeLocalStorage.getItem('user');
     console.log('🔍 [ChatApp Mount] Проверка сессии в хранилище: token=' + (t ? 'ЕСТЬ' : 'НЕТ') + ', user=' + (u ? 'ЕСТЬ' : 'НЕТ'));
     if (!t) {
-      console.warn('⚠️ [ChatApp Mount] Токен отсутствует, перенаправление на /login');
-      window.location.href = '/login';
+      console.warn('⚠️ [ChatApp Mount] Токен отсутствует, мгновенный переход на /login');
+      window.location.replace('/login');
       return;
     }
 
@@ -89,15 +89,15 @@ export default function ChatApp() {
       if (typeof document !== 'undefined') {
         const splash = document.getElementById('zaychat-boot-splash');
         if (splash) {
-          splash.style.transition = 'opacity 0.3s ease';
+          splash.style.transition = 'opacity 0.25s ease';
           splash.style.opacity = '0';
           splash.style.pointerEvents = 'none';
           setTimeout(() => {
             splash.remove();
-          }, 350);
+          }, 300);
         }
       }
-    }, 600);
+    }, 250);
     return () => clearTimeout(timer);
   }, []);
 

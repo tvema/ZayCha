@@ -91,26 +91,42 @@ const BOOT_SPLASH_HTML = `
     <div id="step-scripts" class="flex items-center justify-between p-2 rounded-lg bg-neutral-900/80 border border-neutral-800">
       <span class="flex items-center gap-2">
         <span id="step-scripts-dot" class="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0"></span>
-        <span>3. Загрузка скриптов (JS)</span>
+        <span>3. Загрузка модулей (JS)</span>
       </span>
-      <span id="step-scripts-status" class="text-indigo-400 font-medium text-[11px]">Ожидание...</span>
+      <span id="step-scripts-status" class="text-indigo-400 font-medium text-[11px]">Загрузка...</span>
     </div>
     <div id="step-app" class="flex items-center justify-between p-2 rounded-lg bg-neutral-900/80 border border-neutral-800">
       <span class="flex items-center gap-2">
         <span id="step-app-dot" class="w-2 h-2 rounded-full bg-neutral-600 shrink-0"></span>
         <span>4. Запуск интерфейса</span>
       </span>
-      <span id="step-app-status" class="text-neutral-500 font-medium text-[11px]">Ожидание</span>
+      <span id="step-app-status" class="text-neutral-400 font-medium text-[11px]">Ожидание модулей...</span>
+    </div>
+  </div>
+
+  <div id="zaychat-slow-hint" class="hidden w-full max-w-md px-3 mb-2">
+    <div class="flex flex-col gap-2 p-2.5 rounded-lg bg-amber-950/40 border border-amber-800/60 text-amber-200 text-xs">
+      <div class="flex items-center justify-between">
+        <span>⏳ Загрузка занимает больше времени, чем обычно...</span>
+        <button onclick="window.location.reload()" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white font-medium rounded text-[11px] cursor-pointer">
+          Обновить
+        </button>
+      </div>
+      <div class="flex items-center gap-2 pt-1 border-t border-amber-900/40 text-[11px]">
+        <button onclick="window.location.href='/login'" class="text-indigo-400 hover:underline cursor-pointer">Перейти на страницу входа →</button>
+        <span class="text-neutral-500">|</span>
+        <button onclick="window.__resetSession()" class="text-rose-400 hover:underline cursor-pointer">Сбросить сессию</button>
+      </div>
     </div>
   </div>
 
   <div id="zaychat-net-hint" class="hidden w-full max-w-md px-3 mb-2">
-    <div class="flex items-center justify-between p-2 rounded-lg bg-amber-950/40 border border-amber-800/60 text-amber-200 text-xs">
+    <div class="flex items-center justify-between p-2 rounded-lg bg-rose-950/40 border border-rose-800/60 text-rose-200 text-xs">
       <span class="flex items-center gap-1.5">
         <span>⚠️</span>
-        <span>Связь прервалась (смена сети)</span>
+        <span>Связь прервалась (сбой сети)</span>
       </span>
-      <button onclick="window.location.reload()" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white font-medium rounded text-[11px] cursor-pointer">
+      <button onclick="window.location.reload()" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 text-white font-medium rounded text-[11px] cursor-pointer">
         Обновить
       </button>
     </div>
@@ -273,14 +289,33 @@ export default function RootLayout({
                   window.__addZayChatLog('error', args.map(function(a) { return typeof a === 'object' ? (a && a.stack ? a.stack : JSON.stringify(a)) : String(a); }).join(' '));
                 };
 
-                console.log('🚀 [Boot 1/5] HTML получен браузером. Старт диагностики...');
-
+                var path = window.location.pathname || '';
+                var isRoot = path === '/' || path === '';
+                var token = null;
+                var user = null;
                 try {
-                  var token = localStorage.getItem('token');
-                  var user = localStorage.getItem('user');
-                  console.log('🔑 [Boot 2/5] Проверка localStorage: token=' + (token ? 'ЕСТЬ' : 'НЕТ') + ', user=' + (user ? 'ЕСТЬ' : 'НЕТ'));
+                  token = localStorage.getItem('token');
+                  user = localStorage.getItem('user');
                 } catch(e) {
                   console.warn('⚠️ [Boot 2/5] Ошибка чтения localStorage:', e.message);
+                }
+
+                console.log('🚀 [Boot 1/5] HTML получен браузером. Путь: ' + path);
+                console.log('🔑 [Boot 2/5] Проверка localStorage: token=' + (token ? 'ЕСТЬ' : 'НЕТ') + ', user=' + (user ? 'ЕСТЬ' : 'НЕТ'));
+
+                // 1. If at root with NO token, IMMEDIATELY navigate to /login
+                if (isRoot && !token) {
+                  console.log('🚪 [Boot] Токен отсутствует. Мгновенный переход на страницу входа (/login)...');
+                  window.location.replace('/login');
+                  return;
+                }
+
+                // 2. Only show boot splash on root page when token exists
+                if (isRoot && token) {
+                  var st = document.createElement('style');
+                  st.id = 'zaychat-splash-active';
+                  st.textContent = '#zaychat-boot-splash { display: block !important; }';
+                  document.head.appendChild(st);
                 }
 
                 // Global error listener
@@ -326,9 +361,16 @@ export default function RootLayout({
                   if (netHint) netHint.classList.remove('hidden');
                 });
 
+                var totalScripts = 14;
+
                 document.addEventListener('DOMContentLoaded', function() {
                   console.log('📄 [Boot 3/5] DOMContentLoaded - базовый DOM готов.');
                   updateStep('step-html', 'Готово ✅', 'text-emerald-400 font-medium');
+
+                  var scriptsInDom = document.querySelectorAll('script[src*="/_next/static/"]');
+                  if (scriptsInDom.length > 0) {
+                    totalScripts = scriptsInDom.length;
+                  }
 
                   try {
                     var tok = localStorage.getItem('token');
@@ -359,7 +401,9 @@ export default function RootLayout({
                             var sizeKb = entry.transferSize ? Math.round(entry.transferSize / 1024) + ' KB' : (entry.encodedBodySize ? Math.round(entry.encodedBodySize / 1024) + ' KB' : '');
                             var dur = Math.round(entry.duration);
                             console.log('📦 [Чанк ' + loadedChunksCount + '] ' + name + (sizeKb ? ' (' + sizeKb + ')' : '') + ' за ' + dur + 'мс');
-                            updateStep('step-scripts', 'Загружено: ' + loadedChunksCount + ' чанков...', 'text-indigo-400 font-medium', 'w-2 h-2 rounded-full bg-indigo-500 animate-pulse');
+                            var pct = Math.min(99, Math.round((loadedChunksCount / totalScripts) * 100));
+                            updateStep('step-scripts', loadedChunksCount + ' из ' + totalScripts + ' (' + pct + '%)', 'text-indigo-400 font-medium', 'w-2 h-2 rounded-full bg-indigo-500 animate-pulse');
+                            updateStep('step-app', 'Ожидание модулей (' + pct + '%)', 'text-neutral-400 font-medium text-[11px]', 'w-2 h-2 rounded-full bg-neutral-600');
                           }
                         });
                       });
@@ -371,11 +415,20 @@ export default function RootLayout({
                   window.__ZAYCHAT_LOGS.forEach(function(entry) {
                     appendLiveLog(entry);
                   });
+
+                  // Slow connection hint after 5 seconds
+                  setTimeout(function() {
+                    var appStatus = document.getElementById('step-app-status');
+                    if (appStatus && appStatus.textContent.indexOf('Готово') === -1) {
+                      var slowHint = document.getElementById('zaychat-slow-hint');
+                      if (slowHint) slowHint.classList.remove('hidden');
+                    }
+                  }, 5000);
                 });
 
                 window.addEventListener('load', function() {
                   console.log('🌐 [Boot 4/5] Window Loaded - все ресурсы страницы загружены.');
-                  updateStep('step-scripts', 'Все чанки загружены ✅', 'text-emerald-400 font-medium', 'w-2 h-2 rounded-full bg-emerald-500');
+                  updateStep('step-scripts', 'Все модули загружены ✅', 'text-emerald-400 font-medium', 'w-2 h-2 rounded-full bg-emerald-500');
                   updateStep('step-app', 'Запуск React... ⏳', 'text-amber-400 font-medium', 'w-2 h-2 rounded-full bg-amber-500 animate-pulse');
                 });
               })();
@@ -387,6 +440,7 @@ export default function RootLayout({
         {/* Instant SSR Splash Screen with 0 hydration interference */}
         <div 
           id="zaychat-boot-splash"
+          style={{ display: 'none' }}
           suppressHydrationWarning
           dangerouslySetInnerHTML={{ __html: BOOT_SPLASH_HTML }}
         />
