@@ -107,8 +107,11 @@ app.prepare().then(() => {
   });
 
   console.log('Setting up Next.js catch-all route...');
-  // Next.js request handling
-  server.all(/.*/, (req, res) => {
+  // Next.js request handling, skipping socket.io
+  server.all(/.*/, (req, res, next) => {
+    if (req.url && req.url.startsWith('/socket.io')) {
+      return;
+    }
     const parsedUrl = parse(req.url!, true);
     handle(req, res, parsedUrl);
   });

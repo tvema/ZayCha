@@ -510,10 +510,14 @@ export function useChat() {
   const { handleRemoveContact, handleLeaveGroup, handleClearChat, handleMoveContactToCircle, handleAddUserToGroup, handleAddContact, handleBlockContact } = chatContacts;
 
   useEffect(() => {
+    console.log('[MobileConnectionLog] Checking localStorage token and user...');
     const storedToken = safeLocalStorage.getItem('token');
     const storedUser = safeLocalStorage.getItem('user');
     
+    console.log('[MobileConnectionLog] storedToken exists:', !!storedToken, 'storedUser exists:', !!storedUser);
+
     if (!storedToken || storedToken === 'undefined' || !storedUser || storedUser === 'undefined') {
+      console.warn('[MobileConnectionLog] ⚠️ Missing or invalid token/user in localStorage. Redirecting to /login');
       safeLocalStorage.removeItem('token');
       safeLocalStorage.removeItem('user');
       safeLocalStorage.removeItem('e2e_private_key');
@@ -534,7 +538,9 @@ export function useChat() {
     setToken(storedToken);
     try {
       setUser(JSON.parse(storedUser));
+      console.log('[MobileConnectionLog] Parsed user successfully from localStorage.');
     } catch (e) {
+      console.error('[MobileConnectionLog] ❌ Failed to parse storedUser JSON:', e);
       safeLocalStorage.removeItem('token');
       safeLocalStorage.removeItem('user');
       window.location.replace('/login');
@@ -545,18 +551,21 @@ export function useChat() {
       headers: { 'Authorization': `Bearer ${storedToken}` }
     })
     .then(async res => {
+      console.log('[MobileConnectionLog] /api/users/me response status:', res.status);
       if (res.ok) {
         const text = await res.text();
         return text ? JSON.parse(text) : null;
       }
       if (res.status === 401 || res.status === 403) {
+        console.warn('[MobileConnectionLog] ⚠️ /api/users/me unauthorized (401/403). Logging out.');
         handleLogout();
         return null;
       }
-      throw new Error('Failed to fetch user');
+      throw new Error('Failed to fetch user, status: ' + res.status);
     })
     .then(data => {
       if (data && data.id) {
+        console.log('[MobileConnectionLog] ✅ /api/users/me success. User ID:', data.id);
         setUser(data);
         safeLocalStorage.setItem('user', JSON.stringify(data));
       } else if (data === null) {
@@ -564,9 +573,10 @@ export function useChat() {
       }
     })
     .catch(err => {
-      console.warn('Failed to fetch user:', err);
-      if (err.message.includes('401') || err.message.includes('403')) {
-        handleLogout();
+      console.warn('[MobileConnectionLog] ❌ Failed to fetch user:', err);
+      if (err.message.includes('401') || err.message.includes('403') || err.message.includes('Failed to fetch')) {
+        // Don't force logout on network error, but log it
+        console.warn('[MobileConnectionLog] Network or auth error when fetching user me.');
       }
     });
     
@@ -575,7 +585,7 @@ export function useChat() {
     fetchContactCircles();
     fetchReminders();
 
-    console.log('[MobileConnectionLog] Initializing chat session & network state...');
+    console.log('[MobileConnectionLog] Initializing Socket.io connection...');
     console.log('[MobileConnectionLog] navigator.onLine:', navigator.onLine);
     const conn = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
     if (conn) {
@@ -590,21 +600,33 @@ export function useChat() {
     const newSocket = io({
       auth: { token: storedToken },
       transports: ['polling', 'websocket'],
-      reconnectionAttempts: 10,
+      reconnectionAttempts: 20,
       reconnectionDelay: 1000,
-      timeout: 20000
+      timeout: 30000
     });
     
     newSocket.on('connect', () => {
-      console.log('[MobileConnectionLog] Socket connected successfully! ID:', newSocket.id, 'Transport:', newSocket.io.engine.transport.name);
+      console.log('[MobileConnectionLog] 🟢 Socket connected successfully! ID:', newSocket.id, 'Transport:', newSocket.io.engine.transport.name);
     });
 
     newSocket.on('connect_error', (err) => {
-      console.warn('[MobileConnectionLog] Socket connection error:', err.message);
+      console.error('[MobileConnectionLog] ❌ Socket connection error:', err.message, err);
+    });
+
+    newSocket.on('connect_timeout', () => {
+      console.error('[MobileConnectionLog] ⏱️ Socket connection timeout.');
+    });
+
+    newSocket.io.on('error', (err) => {
+      console.error('[MobileConnectionLog] ⚠️ Socket IO engine error:', err);
+    });
+
+    (newSocket.io.engine as any).on('transport_error', (err: any) => {
+      console.error('[MobileConnectionLog] 🚨 Socket transport error:', err);
     });
 
     newSocket.io.engine.on('upgrade', (transport: any) => {
-      console.log('[MobileConnectionLog] Socket transport upgraded to:', transport.name);
+      console.log('[MobileConnectionLog] ⬆️ Socket transport upgraded to:', transport.name);
     });
 
     setSocket(newSocket);
