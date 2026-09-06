@@ -27,7 +27,12 @@ export default function Register() {
     setMounted(true);
     if (typeof document !== 'undefined') {
       const splash = document.getElementById('zaychat-boot-splash');
-      if (splash) splash.remove();
+      if (splash) {
+        splash.style.transition = 'opacity 0.25s ease';
+        splash.style.opacity = '0';
+        splash.style.pointerEvents = 'none';
+        setTimeout(() => splash.remove(), 300);
+      }
     }
   }, []);
 

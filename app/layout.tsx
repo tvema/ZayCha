@@ -303,21 +303,6 @@ export default function RootLayout({
                 console.log('🚀 [Boot 1/5] HTML получен браузером. Путь: ' + path);
                 console.log('🔑 [Boot 2/5] Проверка localStorage: token=' + (token ? 'ЕСТЬ' : 'НЕТ') + ', user=' + (user ? 'ЕСТЬ' : 'НЕТ'));
 
-                // 1. If at root with NO token, IMMEDIATELY navigate to /login
-                if (isRoot && !token) {
-                  console.log('🚪 [Boot] Токен отсутствует. Мгновенный переход на страницу входа (/login)...');
-                  window.location.replace('/login');
-                  return;
-                }
-
-                // 2. Only show boot splash on root page when token exists
-                if (isRoot && token) {
-                  var st = document.createElement('style');
-                  st.id = 'zaychat-splash-active';
-                  st.textContent = '#zaychat-boot-splash { display: block !important; }';
-                  document.head.appendChild(st);
-                }
-
                 // Global error listener
                 window.addEventListener('error', function(e) {
                   var t = e.target || e.srcElement;
@@ -440,7 +425,6 @@ export default function RootLayout({
         {/* Instant SSR Splash Screen with 0 hydration interference */}
         <div 
           id="zaychat-boot-splash"
-          style={{ display: 'none' }}
           suppressHydrationWarning
           dangerouslySetInnerHTML={{ __html: BOOT_SPLASH_HTML }}
         />

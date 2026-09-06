@@ -393,9 +393,25 @@ export function useChatActions(token: string | null, activeContact: User | null,
         } as any]);
 
         if (activeContact) {
-          socket.emit('contact:read', { contactId: activeContact.id });
+          if (socket && socket.connected) {
+            socket.emit('contact:read', { contactId: activeContact.id });
+          } else if (token) {
+            fetch('/api/messages/read', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ contactId: activeContact.id })
+            }).catch(() => {});
+          }
         } else if (activeGroup) {
-          socket.emit('group:read', { groupId: activeGroup.id });
+          if (socket && socket.connected) {
+            socket.emit('group:read', { groupId: activeGroup.id });
+          } else if (token) {
+            fetch('/api/messages/read', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ groupId: activeGroup.id })
+            }).catch(() => {});
+          }
         }
 
         sendOrFallback({

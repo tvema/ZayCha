@@ -353,7 +353,7 @@ export function MessageInput({
       }
 
       typingTimeoutRef.current = setTimeout(() => {
-        socket.emit('typing:stop', { 
+        socket?.emit('typing:stop', { 
           receiverId: activeContact?.id, 
           groupId: activeGroup?.id,
           chatId
@@ -490,7 +490,7 @@ export function MessageInput({
 
     if (socket && (activeContact || activeGroup)) {
       const chatId = activeGroup?.id || activeContact?.id;
-      socket.emit('typing:stop', { 
+      socket?.emit('typing:stop', { 
         receiverId: activeContact?.id, 
         groupId: activeGroup?.id,
         chatId

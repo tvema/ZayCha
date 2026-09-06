@@ -807,7 +807,7 @@ export function useWebRTC(
       }
       
       console.log(`[Call WebRTC] acceptCall: Emitting webrtc:call_accept to ${peerId}`);
-      socket.emit('webrtc:call_accept', { targetId: peerId });
+      socket?.emit('webrtc:call_accept', { targetId: peerId });
       setCallState('connected');
       
       if (targetId) {
