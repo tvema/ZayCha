@@ -117,16 +117,9 @@ export const generatePdfMetadata = async (file: File): Promise<{ width: number, 
          resolve({ width: 0, height: 0 });
          return;
       }
-      const pdfjsLib = await import('pdfjs-dist');
+      const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
       if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-        try {
-          const workerUrl = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-          const response = await fetch(workerUrl);
-          const blob = await response.blob();
-          pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
-        } catch (e) {
-          console.warn("Could not fetch pdf worker, falling back to main thread", e);
-        }
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
       }
       
       const fileReader = new FileReader();
