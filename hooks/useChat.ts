@@ -576,7 +576,11 @@ export function useChat() {
     fetchReminders();
 
     const newSocket = io({
-      auth: { token: storedToken }
+      auth: { token: storedToken },
+      transports: ['polling', 'websocket'],
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      timeout: 20000
     });
     
     setSocket(newSocket);
