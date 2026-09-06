@@ -88,6 +88,7 @@ app.prepare().then(() => {
   server.use(express.urlencoded({ limit: '50mb', extended: true }));
   // Serve static files from public folder (sw.js, manifest.json, etc.)
   server.use(express.static(path.join(process.cwd(), 'public')));
+  server.use('/_next/static', express.static(path.join(process.cwd(), '.next/static')));
   server.use('/uploads', express.static(uploadDir));
 
   const connectedUsers = new Map<string, Set<string>>(); // userId -> Set of socketIds

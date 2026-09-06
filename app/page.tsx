@@ -46,13 +46,20 @@ export default function ChatApp() {
   const [isSplashLoading, setIsSplashLoading] = useState(true);
 
   useEffect(() => {
-    console.log('[MobileConnectionLog] App mount start. User state:', { hasUser: !!user, hasToken: !!token });
+    const t = safeLocalStorage.getItem('token');
+    console.log('[MobileConnectionLog] App mount. Token in storage:', !!t);
+    if (!t) {
+      console.warn('[MobileConnectionLog] No token found on mount, redirecting to /login');
+      window.location.href = '/login';
+      return;
+    }
+
     const timer = setTimeout(() => {
       setIsSplashLoading(false);
       console.log('[MobileConnectionLog] Splash screen finished. Rendering main interface.');
-    }, 800);
+    }, 400);
     return () => clearTimeout(timer);
-  }, [user, token]);
+  }, []);
 
   useEffect(() => {
     if (token && permission === 'granted') {
@@ -300,7 +307,7 @@ export default function ChatApp() {
     return () => clearTimeout(timer);
   }, [user]);
 
-  if (isSplashLoading || !user || !token) {
+  if (isSplashLoading) {
     return (
       <div className="fixed inset-0 bg-neutral-950 text-white flex flex-col items-center justify-center p-6 z-50">
         <div className="relative mb-6">
