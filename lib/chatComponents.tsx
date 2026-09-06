@@ -27,13 +27,7 @@ export const CUSTOM_EMOJIS = [
 ];
 
 export const CustomEmojiPreloader = () => {
-  return (
-    <>
-      {CUSTOM_EMOJIS.map(name => (
-        <link key={name} rel="preload" as="image" href={`/эмодзи зайчат/${name}.png`} fetchPriority="high" />
-      ))}
-    </>
-  );
+  return null;
 };
 
 export const renderMessageText = (text: string, largeEmoji?: boolean) => {

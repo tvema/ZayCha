@@ -22,9 +22,14 @@ export default function ChatApp() {
     // Handle chunk loading errors globally
     const handleChunkError = (event: ErrorEvent | PromiseRejectionEvent) => {
       const message = 'message' in event ? event.message : (event as any).reason?.message;
-      if (message && message.includes('Loading chunk')) {
+      if (message && (message.includes('Loading chunk') || message.includes('ChunkLoadError'))) {
         console.warn('Chunk loading error detected. Attempting to recover...', message);
-        // We could force a reload here, but let's just log it for now to avoid loops if the server is really down
+        const lastReload = sessionStorage.getItem('chunk_reload_ts');
+        const now = Date.now();
+        if (!lastReload || now - parseInt(lastReload, 10) > 8000) {
+          sessionStorage.setItem('chunk_reload_ts', now.toString());
+          window.location.reload();
+        }
       }
     };
 
