@@ -1,20 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import { GlobalModalProvider } from "@/components/GlobalModalProvider";
 import { ClientErrorCatcher } from "./ClientErrorCatcher";
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-sans",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-});
 
 export const metadata: Metadata = {
   title: "ZayChat",
@@ -178,7 +167,7 @@ export default function RootLayout({
 }>) {
   // Force rebuild to clear webpack cache (attempt 4)
   return (
-    <html lang="ru" className={`${inter.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
+    <html lang="ru" suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -348,8 +337,8 @@ export default function RootLayout({
                     if (netHint) netHint.classList.remove('hidden');
                     retryScriptTag(t.src);
                   } else {
-                    var rawMsg = (e.message || 'Unknown error');
-                    if (rawMsg.indexOf('hydration') === -1 && rawMsg.indexOf('Hydration') === -1) {
+                    var rawMsg = (e.message || '');
+                    if (rawMsg && rawMsg !== 'Unknown error' && rawMsg !== 'Script error.' && rawMsg.indexOf('hydration') === -1 && rawMsg.indexOf('Hydration') === -1) {
                       var errMsg = '❌ [Window Error] ' + rawMsg + (e.filename ? ' at ' + e.filename + ':' + (e.lineno || '') : '');
                       window.__addZayChatLog('error', errMsg);
                       origErr.call(console, errMsg);

@@ -1,38 +1,5 @@
-import cp from 'child_process';
-
-// Security Audit Interceptor: Log and trace any process spawning from dependencies or code
-const originalSpawn = cp.spawn;
-const originalExec = cp.exec;
-const originalExecSync = cp.execSync;
-const originalFork = cp.fork;
-
-(cp as any).spawn = function(...args: any[]) {
-  console.error('⚠️ [SECURITY AUDIT] child_process.spawn called with:', args[0], args[1]);
-  console.trace('Stack trace for spawn:');
-  return originalSpawn.apply(this, args as any);
-};
-
-(cp as any).exec = function(...args: any[]) {
-  console.error('⚠️ [SECURITY AUDIT] child_process.exec called with:', args[0]);
-  console.trace('Stack trace for exec:');
-  return originalExec.apply(this, args as any);
-};
-
-(cp as any).execSync = function(...args: any[]) {
-  console.error('⚠️ [SECURITY AUDIT] child_process.execSync called with:', args[0]);
-  console.trace('Stack trace for execSync:');
-  return originalExecSync.apply(this, args as any);
-};
-
-(cp as any).fork = function(...args: any[]) {
-  console.error('⚠️ [SECURITY AUDIT] child_process.fork called with:', args[0]);
-  console.trace('Stack trace for fork:');
-  return originalFork.apply(this, args as any);
-};
-
 import { parse } from 'url';
 import express from 'express';
-import compression from 'compression';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import next from 'next';
@@ -81,7 +48,6 @@ app.prepare().then(() => {
   });
 
   console.log('Setting up Express middleware...');
-  server.use(compression());
   server.use((req, res, next) => {
     const url = req.url || '';
     // Skip static assets and chunks to reduce noise and false error triggers
