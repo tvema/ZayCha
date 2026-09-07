@@ -33,7 +33,6 @@ import { useChatContacts } from './useChatContacts';
 import { useUserKeys } from './useUserKeys';
 
 import { getCachedMessages, setCachedMessages, clearCache } from '@/lib/dbCache';
-import { isMobileConnection } from '@/lib/isMobileConnection';
 
 import { useChatStore } from '@/store/chatStore';
 
@@ -596,13 +595,6 @@ export function useChat() {
     fetchGroups();
     fetchContactCircles();
     fetchReminders();
-
-    const isMobile = isMobileConnection();
-    if (isMobile) {
-      console.log('[MobileConnectionLog] 📱 Mobile connection detected: WebSockets completely bypassed. Running pure HTTPS mode.');
-      setSocket(null);
-      return;
-    }
 
     console.log('[MobileConnectionLog] Initializing Socket.io connection...');
     console.log('[MobileConnectionLog] navigator.onLine:', navigator.onLine);

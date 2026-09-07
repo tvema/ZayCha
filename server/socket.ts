@@ -27,6 +27,18 @@ export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<
     
     jwt.verify(token, JWT_SECRET, (err: any, decoded: any) => {
       if (err) {
+        // If JWT expired or has verification error, check if this session token exists in active sessions table in DB
+        try {
+          const session = db.prepare('SELECT user_id FROM sessions WHERE token = ?').get(token) as any;
+          if (session && session.user_id) {
+            console.log(`ℹ️ [SOCKET AUTH] Active session verified via database for User ID: ${session.user_id}`);
+            socket.data.userId = session.user_id;
+            return next();
+          }
+        } catch (dbErr) {
+          console.error('Session lookup error in socket handshake:', dbErr);
+        }
+
         console.warn(`❌ [SOCKET AUTH FAILED] Invalid token from IP ${clientIp}:`, err.message);
         return next(new Error('Authentication error: Invalid token'));
       }

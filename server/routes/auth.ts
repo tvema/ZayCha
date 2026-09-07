@@ -81,7 +81,7 @@ export function setupAuthRoutes(server: express.Express, io: any, connectedUsers
         }
       }
 
-      const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
+      const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: '365d' });
       
       // Create session
       const sessionId = uuidv4();
@@ -125,7 +125,7 @@ export function setupAuthRoutes(server: express.Express, io: any, connectedUsers
         return res.status(401).json({ error: 'Неверный пароль (Invalid password)' });
       }
 
-      const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+      const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '365d' });
       
       // Create session
       const sessionId = uuidv4();
