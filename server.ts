@@ -16,6 +16,14 @@ if (fs.existsSync('.env')) {
   dotenv.config({ path: '.env' });
 }
 
+// Global safety catchers to prevent unhandled errors from terminating Node.js
+process.on('uncaughtException', (err) => {
+  console.error('🚨 [Process] Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🚨 [Process] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 import { setupRoutes } from './server/routes.js';
 import { setupSocket } from './server/socket.js';
 import { uploadDir } from './server/upload.js';
@@ -48,12 +56,36 @@ app.prepare().then(() => {
   });
 
   console.log('Setting up Express middleware...');
+
+  // 1. Instant drop for vulnerability scanners, exploit probes, and sensitive files
+  const SCANNER_PROBE_REGEX = /(?:^\/\.(?:env|git|aws|ssh|svn|htaccess|config)|wp-json|wp-admin|wp-content|wp-includes|xmlrpc|index\.php|phpmyadmin|cgi-bin|\.php(?:$|\?)|\.asp(?:$|\?)|\.jsp(?:$|\?)|rest_route=)/i;
+
   server.use((req, res, next) => {
-    const url = req.url || '';
-    // Skip static assets and chunks to reduce noise and false error triggers
-    if (!url.includes('/_next/static') && !url.includes('/favicon.ico')) {
+    const rawUrl = req.url || '';
+
+    // Immediate 404 for exploit probes (saves CPU/RAM from Next.js SSR)
+    if (SCANNER_PROBE_REGEX.test(rawUrl)) {
+      res.writeHead(404, { 'Content-Type': 'text/plain', 'Connection': 'close' });
+      res.end('Not Found');
+      return;
+    }
+
+    // Reject mutating methods (POST/PUT/PATCH/DELETE) on non-API routes
+    // (Prevents bots from sending POST / to overload React SSR)
+    const isApi = rawUrl.startsWith('/api/') || rawUrl.startsWith('/socket.io');
+    const isNextInternal = rawUrl.startsWith('/_next/');
+    const isMutatingMethod = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method || '');
+
+    if (isMutatingMethod && !isApi && !isNextInternal) {
+      res.writeHead(405, { 'Content-Type': 'text/plain', 'Connection': 'close' });
+      res.end('Method Not Allowed');
+      return;
+    }
+
+    // Skip static assets and chunks in logging to keep logs clean
+    if (!rawUrl.includes('/_next/static') && !rawUrl.includes('/favicon.ico')) {
       const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-      console.log(`[REQ] ${req.method} ${url} | IP: ${ip}`);
+      console.log(`[REQ] ${req.method} ${rawUrl} | IP: ${ip}`);
     }
     next();
   });
