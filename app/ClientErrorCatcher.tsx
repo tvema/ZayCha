@@ -22,7 +22,11 @@ function isIgnoredError(raw: any): boolean {
     str.includes('failed to fetch') ||
     str.includes('chunkloaderror') ||
     str.includes('net::err') ||
-    str.includes('networkerror')
+    str.includes('networkerror') ||
+    str.includes("expected expression, got '<'") ||
+    str.includes("unexpected token '<'") ||
+    str.includes("syntaxerror: expected expression") ||
+    str.includes("syntaxerror: unexpected token")
   ) {
     return true;
   }

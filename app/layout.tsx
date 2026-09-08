@@ -196,9 +196,22 @@ export default function RootLayout({
                     var color = entry.level === 'error' ? 'text-rose-400' : (entry.level === 'warn' ? 'text-amber-400' : 'text-neutral-300');
                     var badgeColor = entry.level === 'error' ? 'text-rose-400 font-bold' : (entry.level === 'warn' ? 'text-amber-400 font-bold' : 'text-indigo-400 font-medium');
                     var badge = entry.level === 'error' ? 'ERR' : (entry.level === 'warn' ? 'WRN' : 'INF');
-                    line.innerHTML = '<span class="text-neutral-600 shrink-0 select-none text-[10px]">[' + entry.time + ']</span>' +
-                      '<span class="shrink-0 text-[10px] ' + badgeColor + '">' + badge + '</span>' +
-                      '<span class="flex-1 text-[11px] ' + color + '">' + (entry.msg || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+                    
+                    var timeSpan = document.createElement('span');
+                    timeSpan.className = 'text-neutral-600 shrink-0 select-none text-[10px]';
+                    timeSpan.textContent = '[' + entry.time + ']';
+
+                    var badgeSpan = document.createElement('span');
+                    badgeSpan.className = 'shrink-0 text-[10px] ' + badgeColor;
+                    badgeSpan.textContent = badge;
+
+                    var msgSpan = document.createElement('span');
+                    msgSpan.className = 'flex-1 text-[11px] ' + color;
+                    msgSpan.textContent = entry.msg || '';
+
+                    line.appendChild(timeSpan);
+                    line.appendChild(badgeSpan);
+                    line.appendChild(msgSpan);
                     container.appendChild(line);
                     container.scrollTop = container.scrollHeight;
                   }

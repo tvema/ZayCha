@@ -4,7 +4,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-const STATIC_CACHE_NAME = 'zaychat-static-v2';
+const STATIC_CACHE_NAME = 'zaychat-static-v3';
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
@@ -245,6 +245,15 @@ self.addEventListener('fetch', (event) => {
             try {
               const res = await fetch(event.request);
               if (res && (res.status === 200 || res.type === 'opaque')) {
+                const contentType = (res.headers && res.headers.get('content-type')) || '';
+                // If server returned HTML (e.g. 404 page or SPA fallback), do not cache or execute as JS/CSS
+                if (contentType.includes('text/html')) {
+                  return new Response('Static asset not found', {
+                    status: 404,
+                    statusText: 'Not Found',
+                    headers: { 'Content-Type': 'text/plain' }
+                  });
+                }
                 try {
                   const cache = await caches.open(STATIC_CACHE_NAME);
                   cache.put(event.request, res.clone());
