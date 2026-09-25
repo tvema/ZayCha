@@ -102,6 +102,18 @@ app.prepare().then(() => {
     fallthrough: true
   }));
 
+  // Explicit PDF Worker routes with proper MIME type headers
+  server.get(['/pdf.worker.min.mjs', '/pdf.worker.mjs'], (req, res) => {
+    res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
+    res.setHeader('Cache-Control', 'public, max-age=604800');
+    res.sendFile(path.join(process.cwd(), 'public', 'pdf.worker.min.mjs'));
+  });
+  server.get(['/pdf.worker.min.js', '/pdf.worker.js'], (req, res) => {
+    res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
+    res.setHeader('Cache-Control', 'public, max-age=604800');
+    res.sendFile(path.join(process.cwd(), 'public', 'pdf.worker.min.js'));
+  });
+
   // Serve static files from public folder (sw.js, manifest.json, icons, etc.)
   server.use(express.static(path.join(process.cwd(), 'public'), {
     maxAge: '7d',
@@ -110,6 +122,8 @@ app.prepare().then(() => {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       } else if (filePath.endsWith('manifest.json')) {
         res.setHeader('Cache-Control', 'public, max-age=3600');
+      } else if (filePath.endsWith('.mjs') || filePath.endsWith('.js')) {
+        res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
       }
     }
   }));

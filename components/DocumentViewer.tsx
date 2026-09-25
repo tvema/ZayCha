@@ -10,6 +10,7 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
   const [loading, setLoading] = useState(true);
   const [docType, setDocType] = useState<'pdf' | 'docx' | 'xlsx' | 'odt' | null>(null);
   const [contentHtml, setContentHtml] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderTaskRef = useRef<any>(null);
@@ -19,6 +20,7 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
     const loadDocument = async () => {
       try {
         setLoading(true);
+        setErrorMessage(null);
         let activeDocType: 'pdf' | 'docx' | 'xlsx' | 'odt' = 'pdf';
         const lowerAlt = (alt || '').toLowerCase();
         if (lowerAlt.endsWith('.docx') || src.includes('wordprocessingml.document')) activeDocType = 'docx';
@@ -27,9 +29,13 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
         
         setDocType(activeDocType);
 
+        const resolvedSrc = (src.startsWith('http') || src.startsWith('blob:') || src.startsWith('data:'))
+          ? src
+          : (typeof window !== 'undefined' ? new URL(src, window.location.href).href : src);
+
         let typedarray: Uint8Array | null = null;
-        if (src.startsWith('data:')) {
-          const base64 = src.split(',')[1];
+        if (resolvedSrc.startsWith('data:')) {
+          const base64 = resolvedSrc.split(',')[1];
           const binary_string = window.atob(base64);
           const len = binary_string.length;
           const bytes = new Uint8Array(len);
@@ -37,9 +43,9 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
               bytes[i] = binary_string.charCodeAt(i);
           }
           typedarray = bytes;
-        } else if (src.startsWith('blob:')) {
+        } else if (resolvedSrc.startsWith('blob:')) {
           try {
-            const response = await fetch(src);
+            const response = await fetch(resolvedSrc);
             if (response.ok) {
               const arrayBuffer = await response.arrayBuffer();
               typedarray = new Uint8Array(arrayBuffer);
@@ -51,12 +57,12 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
           try {
             let response: Response | null = null;
             try {
-              response = await fetch(src, { headers: { 'Cache-Control': 'no-cache' } });
+              response = await fetch(resolvedSrc, { headers: { 'Cache-Control': 'no-cache' } });
             } catch (e) {
               response = null;
             }
             if (!response || !response.ok) {
-              response = await fetch(src).catch(() => null);
+              response = await fetch(resolvedSrc).catch(() => null);
             }
             if (response && response.ok) {
               const arrayBuffer = await response.arrayBuffer();
@@ -69,16 +75,33 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
 
         if (!active) return;
 
+        if (typedarray && typedarray.length >= 5 && typedarray[0] === 0x3C && (typedarray[1] === 0x21 || typedarray[1] === 0x68 || typedarray[1] === 0x48)) {
+          throw new Error("Сервер вернул HTML-страницу вместо PDF (файл не найден или ошибка сервера)");
+        }
+
         if (activeDocType === 'pdf') {
           const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
           pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
           
           const docInit: any = typedarray 
                ? { data: typedarray, disableFontFace: true } 
-               : { url: src, disableFontFace: true };
+               : { url: resolvedSrc, disableFontFace: true };
                
-          const documentProxy = pdfjsLib.getDocument(docInit);
-          const pdf = await documentProxy.promise;
+          let pdf: any = null;
+          try {
+            const documentProxy = pdfjsLib.getDocument(docInit);
+            pdf = await documentProxy.promise;
+          } catch (primaryErr: any) {
+            console.warn("Primary PDF worker load failed, trying .js worker fallback:", primaryErr);
+            try {
+              pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+              const fallbackProxy = pdfjsLib.getDocument(docInit);
+              pdf = await fallbackProxy.promise;
+            } catch {
+              throw primaryErr;
+            }
+          }
+
           if (!active) return;
           
           setPdfProxy(pdf);
@@ -136,9 +159,12 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
         }
         
         if (active) setLoading(false);
-      } catch (err) {
+      } catch (err: any) {
         console.warn("Failed to load document", err);
-        if (active) setLoading(false);
+        if (active) {
+          setErrorMessage(err?.message || String(err));
+          setLoading(false);
+        }
       }
     };
     
@@ -289,6 +315,11 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
           ) : (
             <div className="flex flex-col items-center justify-center p-8 text-center text-white/80 gap-3 mt-20">
               <p className="text-red-400 font-medium">Не удалось отобразить PDF документ.</p>
+              {errorMessage && (
+                <p className="text-xs text-red-300 font-mono max-w-md break-all bg-red-950/60 border border-red-800/60 p-2.5 rounded-lg select-text">
+                  {errorMessage}
+                </p>
+              )}
               <button onClick={downloadFile} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-sm transition-colors">
                 Скачать файл
               </button>
