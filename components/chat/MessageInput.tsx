@@ -394,6 +394,18 @@ export function MessageInput({
     };
   }, []);
 
+  const fallbackFileInputRef = useRef<HTMLInputElement>(null);
+  const fileInput = chatFileInputRef || fallbackFileInputRef;
+
+  const handleOpenFileDialog = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (fileInput.current) {
+      fileInput.current.value = '';
+      fileInput.current.click();
+    }
+  };
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       const files = e.target.files;
@@ -406,19 +418,15 @@ export function MessageInput({
           setPreviewUrl(null);
           extractPdfThumbnail(file).then(thumb => {
             if (thumb) setPreviewUrl(thumb);
-          }).catch(() => {});
+          }).catch((thumbErr) => {
+            console.warn("Could not extract pdf thumbnail in MessageInput:", thumbErr);
+          });
         } else {
           setPreviewUrl(null);
         }
       }
     } catch (err) {
       console.error("handleFileSelect error:", err);
-    } finally {
-      setTimeout(() => {
-        if (chatFileInputRef.current) {
-          chatFileInputRef.current.value = '';
-        }
-      }, 50);
     }
   };
 
@@ -428,6 +436,9 @@ export function MessageInput({
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
+    }
+    if (fileInput.current) {
+      fileInput.current.value = '';
     }
   };
 
@@ -759,11 +770,10 @@ export function MessageInput({
           {!isRecording ? (
             <>
               <input 
-                id="chat-file-input"
                 type="file" 
-                ref={chatFileInputRef} 
+                ref={fileInput} 
                 onChange={handleFileSelect} 
-                className="sr-only absolute pointer-events-none opacity-0 w-0 h-0" 
+                className="hidden" 
                 tabIndex={-1}
               />
               <button 
@@ -774,13 +784,14 @@ export function MessageInput({
               >
                 <Camera size={20} />
               </button>
-              <label 
-                htmlFor="chat-file-input"
+              <button 
+                type="button"
+                onClick={handleOpenFileDialog}
                 className="p-2 mb-1 text-neutral-400 dark:text-neutral-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer flex items-center justify-center select-none"
                 title={t.modals?.attachFile}
               >
                 <Paperclip size={20} />
-              </label>
+              </button>
               <button 
                 type="button" 
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
