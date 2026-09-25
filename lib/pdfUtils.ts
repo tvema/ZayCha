@@ -19,7 +19,8 @@ export async function extractPdfThumbnail(source: File | Blob | ArrayBuffer | Ui
     try {
       const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
       if (pdfjsLib.GlobalWorkerOptions) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+        const versionParam = pdfjsLib.version ? `?v=${encodeURIComponent(pdfjsLib.version)}` : '';
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.mjs${versionParam}`;
       }
 
       let docParam: any = null;

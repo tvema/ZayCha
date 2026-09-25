@@ -81,7 +81,8 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
 
         if (activeDocType === 'pdf') {
           const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
-          pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+          const versionParam = pdfjsLib.version ? `?v=${encodeURIComponent(pdfjsLib.version)}` : '';
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.mjs${versionParam}`;
           
           const docInit: any = typedarray 
                ? { data: typedarray, disableFontFace: true } 
@@ -94,7 +95,7 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
           } catch (primaryErr: any) {
             console.warn("Primary PDF worker load failed, trying .js worker fallback:", primaryErr);
             try {
-              pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+              pdfjsLib.GlobalWorkerOptions.workerSrc = `/pdf.worker.min.js${versionParam}`;
               const fallbackProxy = pdfjsLib.getDocument(docInit);
               pdf = await fallbackProxy.promise;
             } catch {

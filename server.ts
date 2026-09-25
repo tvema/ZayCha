@@ -102,16 +102,20 @@ app.prepare().then(() => {
     fallthrough: true
   }));
 
-  // Explicit PDF Worker routes with proper MIME type headers
-  server.get(['/pdf.worker.min.mjs', '/pdf.worker.mjs'], (req, res) => {
+  // Explicit PDF Worker routes with proper MIME type headers and automatic node_modules version sync
+  const sendPdfWorker = (res: express.Response) => {
+    const nodeModulesWorker = path.join(process.cwd(), 'node_modules', 'pdfjs-dist', 'legacy', 'build', 'pdf.worker.min.mjs');
+    const targetFile = fs.existsSync(nodeModulesWorker) 
+      ? nodeModulesWorker 
+      : path.join(process.cwd(), 'public', 'pdf.worker.min.mjs');
+
     res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
-    res.setHeader('Cache-Control', 'public, max-age=604800');
-    res.sendFile(path.join(process.cwd(), 'public', 'pdf.worker.min.mjs'));
-  });
-  server.get(['/pdf.worker.min.js', '/pdf.worker.js'], (req, res) => {
-    res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
-    res.setHeader('Cache-Control', 'public, max-age=604800');
-    res.sendFile(path.join(process.cwd(), 'public', 'pdf.worker.min.js'));
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.sendFile(targetFile);
+  };
+
+  server.get(['/pdf.worker.min.mjs', '/pdf.worker.mjs', '/pdf.worker.min.js', '/pdf.worker.js'], (req, res) => {
+    sendPdfWorker(res);
   });
 
   // Serve static files from public folder (sw.js, manifest.json, icons, etc.)
