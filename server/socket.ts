@@ -627,7 +627,7 @@ export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<
       const sendCallPushAndEvent = () => {
         const targetSockets = connectedUsers.get(data.targetId);
         if (targetSockets && targetSockets.size > 0) {
-          targetSockets.forEach(socketId => io.to(socketId).emit('webrtc:call_request', { requesterId: userId, audioOnly: data.audioOnly }));
+          targetSockets.forEach(socketId => io.to(socketId).emit('webrtc:call_request', { requesterId: userId, audioOnly: data.audioOnly, viewport: data.viewport }));
         }
         
         try {
@@ -679,7 +679,7 @@ export function setupSocket(io: SocketIOServer, connectedUsers: Map<string, Set<
       deleteActiveCall(userId);
       const targetSockets = connectedUsers.get(data.targetId);
       if (targetSockets) {
-        targetSockets.forEach(socketId => io.to(socketId).emit('webrtc:call_accept', { accepterId: userId }));
+        targetSockets.forEach(socketId => io.to(socketId).emit('webrtc:call_accept', { accepterId: userId, viewport: data.viewport }));
       }
       
       const ownSockets = connectedUsers.get(userId);

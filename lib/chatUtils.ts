@@ -111,73 +111,85 @@ export const generateImageMetadata = (file: File): Promise<{ width: number, heig
 };
 
 export const generatePdfMetadata = async (file: File): Promise<{ width: number, height: number, thumbnail?: string }> => {
-  return new Promise(async (resolve) => {
-    try {
-      if (typeof window === 'undefined') {
-         resolve({ width: 0, height: 0 });
-         return;
+  if (typeof window === 'undefined' || !file || file.size === 0) {
+    return { width: 0, height: 0 };
+  }
+
+  return new Promise((resolve) => {
+    let finished = false;
+    const timeoutId = setTimeout(() => {
+      if (!finished) {
+        finished = true;
+        resolve({ width: 0, height: 0 });
       }
-      const pdfjsLib = await (new Function('return import("pdfjs-dist/legacy/build/pdf.mjs")')());
-      if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-      }
-      
-      const fileReader = new FileReader();
-      fileReader.onload = async function() {
-        try {
-          const typedarray = new Uint8Array(this.result as ArrayBuffer);
-          const documentProxy = pdfjsLib.getDocument({ data: typedarray });
-          documentProxy.promise.then(async (pdf: any) => {
-            const page = await pdf.getPage(1);
-            const viewport = page.getViewport({ scale: 1.0 });
-            
-            let thumbW = viewport.width;
-            let thumbH = viewport.height;
-            const MAX_DIM = 400;
-            if (thumbW > thumbH) {
-              if (thumbW > MAX_DIM) {
-                thumbH *= MAX_DIM / thumbW;
-                thumbW = MAX_DIM;
-              }
-            } else {
-              if (thumbH > MAX_DIM) {
-                thumbW *= MAX_DIM / thumbH;
-                thumbH = MAX_DIM;
-              }
-            }
-            
+    }, 4000);
+
+    (async () => {
+      let pdf: any = null;
+      try {
+        const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+        if (pdfjsLib.GlobalWorkerOptions) {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+        }
+
+        const arrayBuffer = await file.arrayBuffer();
+        const typedarray = new Uint8Array(arrayBuffer);
+        const documentProxy = pdfjsLib.getDocument({
+          data: typedarray
+        });
+        pdf = await documentProxy.promise;
+        if (finished) return;
+
+        const page = await pdf.getPage(1);
+        const rawViewport = page.getViewport({ scale: 1.0 });
+
+        const width = rawViewport.width || 0;
+        const height = rawViewport.height || 0;
+
+        let thumbnail: string | undefined = undefined;
+        if (width > 0 && height > 0) {
+          try {
+            const MAX_DIM = 360;
+            const thumbScale = Math.min(1.0, MAX_DIM / Math.max(width, height));
+            const thumbViewport = page.getViewport({ scale: thumbScale });
+
             const canvas = document.createElement('canvas');
-            canvas.width = thumbW;
-            canvas.height = thumbH;
+            canvas.width = Math.max(1, Math.floor(thumbViewport.width));
+            canvas.height = Math.max(1, Math.floor(thumbViewport.height));
             const ctx = canvas.getContext('2d');
-            if (!ctx) {
-               resolve({ width: viewport.width, height: viewport.height });
-               return;
+            if (ctx) {
+              const renderTask = page.render({
+                canvasContext: ctx,
+                viewport: thumbViewport
+              });
+              await renderTask.promise;
+              thumbnail = canvas.toDataURL('image/webp', 0.6);
             }
-            const renderContext: any = {
-              canvasContext: ctx,
-              viewport: page.getViewport({ scale: thumbW / viewport.width })
-            };
-            await page.render(renderContext).promise;
-            const thumbnail = canvas.toDataURL('image/webp', 0.5);
-            resolve({ width: viewport.width, height: viewport.height, thumbnail });
-          }).catch((err: any) => {
-             console.error("PDF parsing promise error", err);
-             resolve({ width: 0, height: 0 });
-          });
-        } catch (err) {
-          console.error("PDF loading error", err);
+          } catch (renderErr) {
+            console.warn("PDF thumbnail render warning:", renderErr);
+          }
+        }
+
+        if (!finished) {
+          finished = true;
+          clearTimeout(timeoutId);
+          resolve({ width, height, thumbnail });
+        }
+      } catch (err) {
+        console.warn("PDF metadata generation skipped:", err);
+        if (!finished) {
+          finished = true;
+          clearTimeout(timeoutId);
           resolve({ width: 0, height: 0 });
         }
-      };
-      fileReader.onerror = () => {
-         resolve({ width: 0, height: 0 });
-      };
-      fileReader.readAsArrayBuffer(file);
-    } catch (e) {
-      console.error("Failed to load PDF JS dynamically", e);
-      resolve({ width: 0, height: 0 });
-    }
+      } finally {
+        if (pdf) {
+          try {
+            await pdf.destroy();
+          } catch {}
+        }
+      }
+    })();
   });
 };
 

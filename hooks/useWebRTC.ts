@@ -18,6 +18,13 @@ const ICE_SERVERS = [
   { urls: 'stun:stun.voxgratia.org' },
 ];
 
+export interface PeerViewport {
+  width: number;
+  height: number;
+  aspectRatio: number;
+  isPortrait: boolean;
+}
+
 export function useWebRTC(
   socket: Socket | null
 ) {
@@ -46,6 +53,7 @@ export function useWebRTC(
   const [isMediaActive, setIsMediaActive] = useState(false);
   const [isPeerMediaActive, setIsPeerMediaActive] = useState(false);
   const [isPeerVideoActive, setIsPeerVideoActive] = useState(true);
+  const [peerViewport, setPeerViewport] = useState<PeerViewport | null>(null);
   const [remoteStreamVersion, setRemoteStreamVersion] = useState(0);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -70,7 +78,7 @@ export function useWebRTC(
     });
   }, [socket]);
 
-  const reportMediaStatus = useCallback((status: { video: boolean, audio: boolean }) => {
+  const reportMediaStatus = useCallback((status: { video: boolean, audio: boolean, viewport?: PeerViewport }) => {
     const target = callPeerIdRef.current;
     if (target && socket) {
       socket.emit('webrtc:media_status', { targetId: target, status });
@@ -581,6 +589,7 @@ export function useWebRTC(
     }
     setCallState('idle');
     setCallPeerId(null);
+    setPeerViewport(null);
     setRemoteStreamVersion(0);
     setIsVideoEnabled(true);
     setIsMediaActive(false);
@@ -743,7 +752,14 @@ export function useWebRTC(
       setCallState('calling');
       playDialingSound();
 
-      socket?.emit('webrtc:call_request', { targetId, audioOnly });
+      const currentViewport = typeof window !== 'undefined' ? {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        aspectRatio: window.innerWidth / window.innerHeight,
+        isPortrait: window.innerHeight > window.innerWidth
+      } : undefined;
+
+      socket?.emit('webrtc:call_request', { targetId, audioOnly, viewport: currentViewport });
     } catch (err) {
       console.error('Failed to get media devices', err);
       showAlert('Could not access microphone. Please check your browser permissions.');
@@ -807,7 +823,14 @@ export function useWebRTC(
       }
       
       console.log(`[Call WebRTC] acceptCall: Emitting webrtc:call_accept to ${peerId}`);
-      socket?.emit('webrtc:call_accept', { targetId: peerId });
+      const currentViewport = typeof window !== 'undefined' ? {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        aspectRatio: window.innerWidth / window.innerHeight,
+        isPortrait: window.innerHeight > window.innerWidth
+      } : undefined;
+
+      socket?.emit('webrtc:call_accept', { targetId: peerId, viewport: currentViewport });
       setCallState('connected');
       
       if (targetId) {
@@ -986,8 +1009,11 @@ export function useWebRTC(
       }
     };
 
-    const handleCallRequest = async (data: { requesterId: string, audioOnly?: boolean }) => {
+    const handleCallRequest = async (data: { requesterId: string, audioOnly?: boolean, viewport?: PeerViewport }) => {
       console.log(`[Call WebRTC] handleCallRequest: Received from ${data.requesterId}. Current state: ${callStateRef.current}`);
+      if (data.viewport) {
+        setPeerViewport(data.viewport);
+      }
       
       // If we get a request from the same peer we just rejected, and we are idle, 
       // it means they are calling again intentionally. Allow it.
@@ -1026,8 +1052,11 @@ export function useWebRTC(
       }
     };
 
-    const handleCallAccept = async (data: { accepterId: string }) => {
+    const handleCallAccept = async (data: { accepterId: string, viewport?: PeerViewport }) => {
       console.log(`[Call WebRTC] handleCallAccept from ${data.accepterId}. State: ${callStateRef.current}, Peer: ${callPeerIdRef.current}`);
+      if (data.viewport) {
+        setPeerViewport(data.viewport);
+      }
       if (callStateRef.current === 'calling' && callPeerIdRef.current === data.accepterId) {
         stopCallSound();
         setCallState('connected');
@@ -1071,11 +1100,14 @@ export function useWebRTC(
       }
     };
 
-    const handleMediaStatus = (data: { senderId: string, status: { video: boolean, audio: boolean } }) => {
+    const handleMediaStatus = (data: { senderId: string, status: { video: boolean, audio: boolean, viewport?: PeerViewport } }) => {
       if (data.senderId === callPeerIdRef.current) {
         setIsPeerVideoActive(data.status.video);
         if (data.status.video || data.status.audio) {
           setIsPeerMediaActive(true);
+        }
+        if (data.status.viewport) {
+          setPeerViewport(data.status.viewport);
         }
       }
     };
@@ -1266,6 +1298,7 @@ export function useWebRTC(
     isMediaActive,
     isPeerMediaActive,
     isPeerVideoActive,
+    peerViewport,
     remoteStreamVersion,
     isScreenSharing,
     facingMode,
@@ -1288,6 +1321,7 @@ export function useWebRTC(
     isMediaActive,
     isPeerMediaActive,
     isPeerVideoActive,
+    peerViewport,
     remoteStreamVersion,
     isScreenSharing,
     facingMode,

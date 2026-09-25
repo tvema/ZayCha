@@ -1,5 +1,6 @@
 import { X, Download, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
+import { motion } from 'motion/react';
 
 export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src: string, alt: string, onClose: () => void, onGenerateThumbnail?: (thumb: string) => void }) => {
   const [numPages, setNumPages] = useState<number>(0);
@@ -19,7 +20,7 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
       try {
         setLoading(true);
         let activeDocType: 'pdf' | 'docx' | 'xlsx' | 'odt' = 'pdf';
-        const lowerAlt = alt.toLowerCase();
+        const lowerAlt = (alt || '').toLowerCase();
         if (lowerAlt.endsWith('.docx') || src.includes('wordprocessingml.document')) activeDocType = 'docx';
         else if (lowerAlt.endsWith('.xlsx') || lowerAlt.endsWith('.xls') || lowerAlt.endsWith('.ods') || src.includes('spreadsheetml')) activeDocType = 'xlsx';
         else if (lowerAlt.endsWith('.odt') || src.includes('opendocument.text')) activeDocType = 'odt';
@@ -36,6 +37,16 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
               bytes[i] = binary_string.charCodeAt(i);
           }
           typedarray = bytes;
+        } else if (src.startsWith('blob:')) {
+          try {
+            const response = await fetch(src);
+            if (response.ok) {
+              const arrayBuffer = await response.arrayBuffer();
+              typedarray = new Uint8Array(arrayBuffer);
+            }
+          } catch (e) {
+            console.error("Fetch blob failed", e);
+          }
         } else {
           try {
             const response = await fetch(src, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Cache-Control': 'no-cache' }});
@@ -44,7 +55,7 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
               typedarray = new Uint8Array(arrayBuffer);
             }
           } catch (e) {
-            console.error("Fetch failed, will fallback", e);
+            console.warn("Fetch failed, will fallback", e);
           }
         }
 
@@ -52,9 +63,7 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
 
         if (activeDocType === 'pdf') {
           const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
-          if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-          }
+          pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
           
           const documentProxy = typedarray 
                ? pdfjsLib.getDocument({ data: typedarray }) 
@@ -119,7 +128,7 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
         
         if (active) setLoading(false);
       } catch (err) {
-        console.error("Failed to load document", err);
+        console.warn("Failed to load document", err);
         if (active) setLoading(false);
       }
     };
@@ -204,7 +213,7 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
         }
       } catch (err: any) {
          if (err.name !== 'RenderingCancelledException') {
-            console.error("Page render error", err);
+            console.warn("Page render warning:", err);
          }
       }
     };
@@ -224,7 +233,14 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/95 flex flex-col touch-none" onClick={(e) => e.stopPropagation()}>
+    <motion.div 
+      key="document-viewer-modal"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, backdropFilter: 'blur(0px)', pointerEvents: 'none' }}
+      className="fixed inset-0 z-[100] bg-black/95 flex flex-col touch-none" 
+      onClick={(e) => e.stopPropagation()}
+    >
       <div className="absolute top-0 inset-x-0 p-4 flex pl-4 pr-16 md:pr-4 justify-between items-center z-10 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
         <div className="text-white/90 text-sm font-medium truncate max-w-[50%] px-2 pointer-events-auto">
           {alt}
@@ -255,11 +271,20 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
              <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : docType === 'pdf' ? (
-          <canvas 
-            ref={canvasRef} 
-            className="bg-white shadow-xl max-w-full h-auto transition-transform origin-top"
-            onClick={(e) => e.stopPropagation()}
-          />
+          pdfProxy ? (
+            <canvas 
+              ref={canvasRef} 
+              className="bg-white shadow-xl max-w-full h-auto transition-transform origin-top"
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center p-8 text-center text-white/80 gap-3 mt-20">
+              <p className="text-red-400 font-medium">Не удалось отобразить PDF документ.</p>
+              <button onClick={downloadFile} className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-sm transition-colors">
+                Скачать файл
+              </button>
+            </div>
+          )
         ) : (docType === 'docx' || docType === 'xlsx' || docType === 'odt') ? (
           <div 
             className={`bg-white shadow-xl text-black prose prose-sm md:prose-base prose-indigo overflow-auto ${
@@ -296,6 +321,6 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 };

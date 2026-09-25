@@ -439,10 +439,14 @@ export default function RootLayout({
                     }
                   } catch(e) {}
 
-                  // Check Service Workers
+                  // Check Service Workers & clean old caches
+                  if ('caches' in window) {
+                    caches.delete('zaychat-static-v3').catch(function() {});
+                  }
                   if ('serviceWorker' in navigator) {
                     navigator.serviceWorker.getRegistrations().then(function(regs) {
                       if (regs && regs.length > 0) {
+                        regs.forEach(function(r) { r.update().catch(function(){}); });
                         console.log('👷 [Service Worker] Активных воркеров: ' + regs.length);
                       }
                     }).catch(function() {});

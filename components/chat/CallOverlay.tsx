@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'motion/react';
-import { PhoneOff, Video, VideoOff, Phone, Play, MonitorUp, MonitorOff, RefreshCw } from 'lucide-react';
+import { PhoneOff, Video, VideoOff, Phone, Play, MonitorUp, MonitorOff, RefreshCw, Smartphone, Monitor, Crop } from 'lucide-react';
 import { User } from '@/types/chat';
 import { useLanguage } from '../LanguageProvider';
 
@@ -15,6 +15,12 @@ interface CallOverlayProps {
   isMediaActive: boolean;
   isPeerMediaActive: boolean;
   isPeerVideoActive: boolean;
+  peerViewport?: {
+    width: number;
+    height: number;
+    aspectRatio: number;
+    isPortrait: boolean;
+  } | null;
   remoteStreamVersion: number;
   isScreenSharing: boolean;
   localVideoRef: any;
@@ -29,7 +35,7 @@ interface CallOverlayProps {
   acceptCall: () => void;
   rejectCall: () => void;
   reportMediaActive: () => void;
-  reportMediaStatus: (status: { video: boolean, audio: boolean }) => void;
+  reportMediaStatus: (status: { video: boolean, audio: boolean, viewport?: any }) => void;
 }
 
 export function CallOverlay({
@@ -40,6 +46,7 @@ export function CallOverlay({
   isMediaActive,
   isPeerMediaActive,
   isPeerVideoActive,
+  peerViewport,
   remoteStreamVersion,
   isScreenSharing,
   localVideoRef,
@@ -59,7 +66,50 @@ export function CallOverlay({
   const { t } = useLanguage();
   const [isRemoteVideoPlaying, setIsRemoteVideoPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
+  const [cameraAspectRatio, setCameraAspectRatio] = useState<number>(4 / 3);
+  type FramingMode = 'peer' | 'portrait' | 'landscape' | 'camera';
+  const [framingMode, setFramingMode] = useState<FramingMode>('peer');
+  const [showFramingTooltip, setShowFramingTooltip] = useState(false);
   const peer = contacts.find(c => c.id === callPeerId);
+
+  // Measure local camera video element dimensions
+  useEffect(() => {
+    const video = localVideoRef.current;
+    if (!video) return;
+    const updateCamRatio = () => {
+      if (video.videoWidth && video.videoHeight) {
+        setCameraAspectRatio(video.videoWidth / video.videoHeight);
+      }
+    };
+    video.addEventListener('loadedmetadata', updateCamRatio);
+    video.addEventListener('resize', updateCamRatio);
+    updateCamRatio();
+    return () => {
+      video.removeEventListener('loadedmetadata', updateCamRatio);
+      video.removeEventListener('resize', updateCamRatio);
+    };
+  }, [localVideoRef, localStream]);
+
+  // Calculate target aspect ratio for self-view thumbnail
+  const effectiveAspectRatio = (() => {
+    if (framingMode === 'portrait') return 9 / 16;
+    if (framingMode === 'landscape') return 16 / 9;
+    if (framingMode === 'camera') return cameraAspectRatio || (4 / 3);
+
+    // Default 'peer' mode: match peer's screen aspect ratio exactly!
+    if (peerViewport && peerViewport.aspectRatio > 0) {
+      return Math.max(0.35, Math.min(2.5, peerViewport.aspectRatio));
+    }
+
+    // Fallback before peer viewport is negotiated:
+    // If local user is on desktop and calling, default to 9:16 portrait preview to ensure user frames safely for mobile screens
+    if (typeof window !== 'undefined' && window.innerWidth > window.innerHeight) {
+      return 9 / 16;
+    }
+    return typeof window !== 'undefined' ? (window.innerWidth / window.innerHeight) : (9 / 16);
+  })();
+
+  const isCurrentFramePortrait = effectiveAspectRatio < 1;
 
   const hasRemoteVideo = !!(remoteStream && remoteStream.getVideoTracks().length > 0);
   const showRemoteAvatar = !isRemoteVideoPlaying || !isPeerVideoActive || !hasRemoteVideo;
@@ -94,7 +144,7 @@ export function CallOverlay({
     }
   }, [localStream, localVideoRef, isScreenSharing]);
 
-  // Report media status periodically
+  // Report media status and viewport periodically and on window resize
   useEffect(() => {
     if (callState !== 'connected') return;
 
@@ -104,7 +154,13 @@ export function CallOverlay({
         const audioTrack = localStream.getAudioTracks()[0];
         const status = {
           video: videoTrack ? videoTrack.enabled : false,
-          audio: audioTrack ? audioTrack.enabled : true
+          audio: audioTrack ? audioTrack.enabled : true,
+          viewport: typeof window !== 'undefined' ? {
+            width: window.innerWidth,
+            height: window.innerHeight,
+            aspectRatio: window.innerWidth / window.innerHeight,
+            isPortrait: window.innerHeight > window.innerWidth
+          } : undefined
         };
         reportMediaStatus(status);
       }
@@ -114,8 +170,15 @@ export function CallOverlay({
     report();
 
     const interval = setInterval(report, 3000);
+    const handleResize = () => report();
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
   }, [callState, reportMediaStatus, localStream]);
 
   useEffect(() => {
@@ -298,11 +361,18 @@ export function CallOverlay({
           </div>
         )}
 
-        {/* Local Video (Picture in Picture) */}
+        {/* Local Video (Picture in Picture) with matching peer framing */}
         <motion.div 
           drag
-          dragConstraints={{ left: -200, right: 20, top: -20, bottom: 200 }}
-          className="absolute top-4 right-4 md:top-6 md:right-6 w-24 sm:w-32 md:w-48 aspect-[3/4] bg-black rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 z-30"
+          dragConstraints={{ left: -300, right: 30, top: -30, bottom: 400 }}
+          style={{
+            aspectRatio: `${effectiveAspectRatio}`,
+          }}
+          className={`absolute top-4 right-4 md:top-6 md:right-6 transition-[width,max-width,max-height,aspect-ratio] duration-500 ease-out bg-black rounded-2xl overflow-hidden shadow-2xl border-2 border-white/20 z-30 group select-none ${
+            isCurrentFramePortrait 
+              ? 'w-24 sm:w-32 md:w-44 max-h-[58vh]' 
+              : 'w-44 sm:w-56 md:w-72 max-w-[75vw]'
+          }`}
         >
           <video 
             ref={localVideoRef} 
@@ -316,6 +386,71 @@ export function CallOverlay({
               <VideoOff className="w-8 h-8 text-neutral-500" />
             </div>
           )}
+
+          {/* Viewfinder corner brackets for visual framing feedback */}
+          <div className="absolute inset-2 pointer-events-none opacity-40 group-hover:opacity-80 transition-opacity">
+            <div className="absolute top-0 left-0 w-2.5 h-2.5 border-t-2 border-l-2 border-white rounded-tl-[3px]" />
+            <div className="absolute top-0 right-0 w-2.5 h-2.5 border-t-2 border-r-2 border-white rounded-tr-[3px]" />
+            <div className="absolute bottom-0 left-0 w-2.5 h-2.5 border-b-2 border-l-2 border-white rounded-bl-[3px]" />
+            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 border-b-2 border-r-2 border-white rounded-br-[3px]" />
+          </div>
+
+          {/* Format mode pill badge / toggle button */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setFramingMode(prev => {
+                if (prev === 'peer') return 'portrait';
+                if (prev === 'portrait') return 'landscape';
+                if (prev === 'landscape') return 'camera';
+                return 'peer';
+              });
+              setShowFramingTooltip(true);
+              setTimeout(() => setShowFramingTooltip(false), 2200);
+            }}
+            title={t.modals?.toggleCameraFormat || "Toggle camera framing"}
+            className="absolute bottom-2 left-2 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 text-[10px] text-white/90 shadow transition-all hover:scale-105 active:scale-95 cursor-pointer"
+          >
+            {framingMode === 'peer' ? (
+              isCurrentFramePortrait ? <Smartphone className="w-3 h-3 text-emerald-400" /> : <Monitor className="w-3 h-3 text-cyan-400" />
+            ) : framingMode === 'portrait' ? (
+              <Smartphone className="w-3 h-3 text-emerald-400" />
+            ) : framingMode === 'landscape' ? (
+              <Monitor className="w-3 h-3 text-cyan-400" />
+            ) : (
+              <Crop className="w-3 h-3 text-amber-400" />
+            )}
+            <span className="font-medium tracking-tight">
+              {framingMode === 'peer' 
+                ? (isCurrentFramePortrait ? '9:16' : '16:9') 
+                : (framingMode === 'portrait' ? '9:16' : framingMode === 'landscape' ? '16:9' : 'Cam')}
+            </span>
+          </button>
+
+          {/* Tooltip on toggle or hover */}
+          <AnimatePresence>
+            {showFramingTooltip && (
+              <motion.div
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="absolute top-2 left-2 right-2 z-20 bg-neutral-950/90 backdrop-blur-md px-2 py-1 rounded-lg border border-white/10 text-center pointer-events-none"
+              >
+                <p className="text-[10px] text-white font-medium">
+                  {framingMode === 'peer' ? (t.modals?.peerFormat || "Формат как у собеседника") :
+                   framingMode === 'portrait' ? (t.modals?.portraitFormat || "Портрет (9:16)") :
+                   framingMode === 'landscape' ? (t.modals?.landscapeFormat || "Альбом (16:9)") :
+                   (t.modals?.cameraOriginal || "Оригинал камеры")}
+                </p>
+                {framingMode === 'peer' && (
+                  <p className="text-[9px] text-emerald-400">
+                    {t.modals?.peerFormatNotice || "Обрезано так, как видит собеседник"}
+                  </p>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
 
         {/* Controls */}

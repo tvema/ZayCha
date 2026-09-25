@@ -202,8 +202,12 @@ export function useChatActions(token: string | null, activeContact: User | null,
             mediaMetadata = await generateImageMetadata(file);
           } else if (file.type.startsWith('video/')) {
             mediaMetadata = await generateVideoMetadata(file);
-          } else if (file.type === 'application/pdf') {
-            mediaMetadata = await generatePdfMetadata(file);
+          } else if (file.type === 'application/pdf' || file.name?.toLowerCase().endsWith('.pdf')) {
+            try {
+              mediaMetadata = await generatePdfMetadata(file);
+            } catch (pdfErr) {
+              console.warn("PDF metadata extraction warning:", pdfErr);
+            }
           }
 
           const metadata = {
@@ -358,8 +362,12 @@ export function useChatActions(token: string | null, activeContact: User | null,
             mediaMetadata = await generateImageMetadata(file);
           } else if (file.type.startsWith('video/')) {
             mediaMetadata = await generateVideoMetadata(file);
-          } else if (file.type === 'application/pdf') {
-            mediaMetadata = await generatePdfMetadata(file);
+          } else if (file.type === 'application/pdf' || file.name?.toLowerCase().endsWith('.pdf')) {
+            try {
+              mediaMetadata = await generatePdfMetadata(file);
+            } catch (pdfErr) {
+              console.warn("PDF metadata extraction warning:", pdfErr);
+            }
           }
 
           const metadata = {

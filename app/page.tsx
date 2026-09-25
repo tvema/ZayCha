@@ -553,6 +553,7 @@ export default function ChatApp() {
         isMediaActive={webrtc.isMediaActive}
         isPeerMediaActive={webrtc.isPeerMediaActive}
         isPeerVideoActive={webrtc.isPeerVideoActive}
+        peerViewport={webrtc.peerViewport}
         remoteStreamVersion={webrtc.remoteStreamVersion}
         isScreenSharing={webrtc.isScreenSharing}
         facingMode={webrtc.facingMode}

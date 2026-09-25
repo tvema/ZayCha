@@ -11,7 +11,6 @@ import { Portal } from './Portal';
 import { AnimatePresence } from 'motion/react';
 import { useLanguage } from '@/components/LanguageProvider';
 import { decryptFile, decryptAESKeyWithRSA, importKey, base64ToArrayBuffer } from '@/lib/crypto';
-import { generatePdfMetadata } from '@/lib/chatUtils';
 import { keyRing } from '@/lib/keyRing';
 import dynamic from 'next/dynamic';
 
@@ -113,6 +112,88 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
   const [isTranscribing, setIsTranscribing] = useState(false);
 
   const [retryCount, setRetryCount] = useState(0);
+
+  const [pdfThumbnail, setPdfThumbnail] = useState<string | null>(fileData.thumbnail || null);
+
+  useEffect(() => {
+    if (fileData.thumbnail) {
+      setPdfThumbnail(fileData.thumbnail);
+    }
+  }, [fileData.thumbnail]);
+
+  const isPdf = fileData.mime === 'application/pdf' || fileData.mime === 'application/x-pdf' || (fileData.name && fileData.name.toLowerCase().endsWith('.pdf'));
+
+  useEffect(() => {
+    let active = true;
+    if (!pdfThumbnail && !fileData.thumbnail && blobUrl && isPdf) {
+      const genThumb = async () => {
+        try {
+          const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+          pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+          let data: Uint8Array | null = null;
+          if (rawBlobRef.current) {
+            const buf = await rawBlobRef.current.arrayBuffer();
+            data = new Uint8Array(buf);
+          } else if (blobUrl.startsWith('blob:') || blobUrl.startsWith('data:')) {
+            const res = await fetch(blobUrl);
+            const buf = await res.arrayBuffer();
+            data = new Uint8Array(buf);
+          }
+          if (!data || !active) return;
+          let pdf: any = null;
+          try {
+            pdf = await pdfjsLib.getDocument({ data }).promise;
+            if (!active) {
+              try { await pdf.destroy(); } catch {}
+              return;
+            }
+            const page = await pdf.getPage(1);
+            const vp = page.getViewport({ scale: 1.0 });
+            const MAX_DIM = 360;
+            const width = vp.width || 0;
+            const height = vp.height || 0;
+            if (width > 0 && height > 0) {
+              const thumbScale = Math.min(1.0, MAX_DIM / Math.max(width, height));
+              const thumbViewport = page.getViewport({ scale: thumbScale });
+              const canvas = document.createElement('canvas');
+              canvas.width = Math.max(1, Math.floor(thumbViewport.width));
+              canvas.height = Math.max(1, Math.floor(thumbViewport.height));
+              const ctx = canvas.getContext('2d');
+              if (ctx && active) {
+                const renderTask = page.render({
+                  canvasContext: ctx,
+                  viewport: thumbViewport
+                });
+                await renderTask.promise;
+                if (!active) {
+                  try { await pdf.destroy(); } catch {}
+                  return;
+                }
+                const thumb = canvas.toDataURL('image/webp', 0.6);
+                setPdfThumbnail(thumb);
+                if (messageId && socket) {
+                  socket.emit('message:update-thumbnail', {
+                    messageId,
+                    thumbnail: thumb,
+                    chatId: activeGroup ? null : senderId,
+                    groupId: activeGroup?.id || null
+                  });
+                }
+              }
+            }
+          } finally {
+            if (pdf) {
+              try { await pdf.destroy(); } catch {}
+            }
+          }
+        } catch (e) {
+          console.warn("Auto PDF thumbnail generation skipped:", e);
+        }
+      };
+      genThumb();
+    }
+    return () => { active = false; };
+  }, [blobUrl, fileData.thumbnail, pdfThumbnail, isPdf, messageId, socket, activeGroup, senderId]);
 
   useEffect(() => {
     const handleViewerAction = (e: any) => {
@@ -896,7 +977,8 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
 
   const isImage = fileData.mime?.startsWith('image/');
   const isVideo = fileData.mime?.startsWith('video/');
-  const isPdfPreview = fileData.mime === 'application/pdf';
+  const isPdfPreview = isPdf;
+  const effectiveThumbnail = fileData.thumbnail || pdfThumbnail;
 
   if (isImage || isVideo || isPdfPreview) {
     let appliedStyle: React.CSSProperties = { 
@@ -941,9 +1023,9 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
           onContextMenu={(e) => e.preventDefault()}
           style={appliedStyle}
         >
-          {fileData.thumbnail && (
+          {effectiveThumbnail && (
             <Image
-              src={fileData.thumbnail}
+              src={effectiveThumbnail}
               alt=""
               fill
               className={`object-cover absolute inset-0 z-0 pointer-events-none select-none transition-opacity duration-300 ${loading ? 'blur-md scale-110 opacity-80' : (!loading && isVideo) ? 'blur-[2px] opacity-70' : ''}`}
@@ -952,7 +1034,7 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
           )}
 
           {loading && (
-            <div className={`absolute inset-0 flex flex-col items-center justify-center z-10 transition-opacity duration-300 ${fileData.thumbnail ? 'bg-black/20 backdrop-blur-[1px]' : 'bg-black/5'}`}>
+            <div className={`absolute inset-0 flex flex-col items-center justify-center z-10 transition-opacity duration-300 ${effectiveThumbnail ? 'bg-black/20 backdrop-blur-[1px]' : 'bg-black/5'}`}>
               {isDecrypting ? (
                 <Lock size={24} className="text-white/90 animate-pulse drop-shadow-md mb-2" />
               ) : hasError ? (
@@ -1011,12 +1093,24 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
           )}
 
           {!loading && blobUrl && isPdfPreview && (
-            <div className="absolute top-2 left-2 z-10 flex flex-col justify-start pointer-events-none">
-                <div className="bg-black/50 backdrop-blur-md px-2 py-1 rounded-lg shadow-sm flex items-center gap-1.5 max-w-[150px]">
-                   <FileIcon size={12} className="text-white shrink-0 drop-shadow-sm" />
-                   <span className="text-[10px] font-medium text-white drop-shadow-sm truncate">{fileData.name}</span>
+            effectiveThumbnail ? (
+              <div className="absolute top-2 left-2 z-10 flex flex-col justify-start pointer-events-none">
+                  <div className="bg-black/50 backdrop-blur-md px-2 py-1 rounded-lg shadow-sm flex items-center gap-1.5 max-w-[150px]">
+                     <FileIcon size={12} className="text-white shrink-0 drop-shadow-sm" />
+                     <span className="text-[10px] font-medium text-white drop-shadow-sm truncate">{fileData.name}</span>
+                  </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center p-4 text-center gap-2 select-none z-10">
+                <div className="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-900/50 flex items-center justify-center shadow-xs">
+                  <span className="text-sm font-black text-rose-500 tracking-wider">PDF</span>
                 </div>
-            </div>
+                <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200 max-w-[200px] truncate">{fileData.name}</p>
+                {fileData.size ? (
+                  <span className="text-[10px] text-neutral-400">{(fileData.size / 1024).toFixed(1)} KB</span>
+                ) : null}
+              </div>
+            )
           )}
         </div>
 
@@ -1038,6 +1132,7 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
                   alt={fileData.name} 
                   onClose={() => setIsViewerOpen(false)} 
                   onGenerateThumbnail={(thumb) => {
+                    setPdfThumbnail(thumb);
                     if (!fileData.thumbnail && messageId && socket) {
                       socket.emit('message:update-thumbnail', {
                          messageId,
