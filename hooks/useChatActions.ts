@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, ReactNode } from 'react';
 import { useGlobalModal } from '@/components/GlobalModalProvider';
 import { User, Message, Group } from '@/types/chat';
 import { generateImageMetadata, generateVideoMetadata, compressImage } from '@/lib/chatUtils';
+import { extractPdfThumbnail } from '@/lib/pdfUtils';
 import { importKey, decryptAESKeyWithRSA, encryptText, encryptAESKeyWithRSA, encryptFile, arrayBufferToBase64, base64ToArrayBuffer } from '@/lib/crypto';
 import { keyRing } from '@/lib/keyRing';
 
@@ -197,11 +198,22 @@ export function useChatActions(token: string | null, activeContact: User | null,
              throw new Error("Invalid JSON from server");
           }
 
-          let mediaMetadata = {};
+          let mediaMetadata: any = {};
           if (file.type.startsWith('image/')) {
             mediaMetadata = await generateImageMetadata(file);
           } else if (file.type.startsWith('video/')) {
             mediaMetadata = await generateVideoMetadata(file);
+          } else if (file.type === 'application/pdf' || file.name?.toLowerCase().endsWith('.pdf')) {
+            try {
+              const thumbPromise = extractPdfThumbnail(file);
+              const thumbTimeout = new Promise<null>((r) => setTimeout(() => r(null), 2500));
+              const thumb = await Promise.race([thumbPromise, thumbTimeout]);
+              if (thumb) {
+                mediaMetadata = { thumbnail: thumb };
+              }
+            } catch (pdfErr) {
+              console.warn("PDF thumbnail extraction warning:", pdfErr);
+            }
           }
 
           const fileMime = file.type || (file.name?.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
@@ -353,11 +365,22 @@ export function useChatActions(token: string | null, activeContact: User | null,
              throw new Error(e.message);
           }
           
-          let mediaMetadata = {};
+          let mediaMetadata: any = {};
           if (file.type.startsWith('image/')) {
             mediaMetadata = await generateImageMetadata(file);
           } else if (file.type.startsWith('video/')) {
             mediaMetadata = await generateVideoMetadata(file);
+          } else if (file.type === 'application/pdf' || file.name?.toLowerCase().endsWith('.pdf')) {
+            try {
+              const thumbPromise = extractPdfThumbnail(file);
+              const thumbTimeout = new Promise<null>((r) => setTimeout(() => r(null), 2500));
+              const thumb = await Promise.race([thumbPromise, thumbTimeout]);
+              if (thumb) {
+                mediaMetadata = { thumbnail: thumb };
+              }
+            } catch (pdfErr) {
+              console.warn("PDF thumbnail extraction warning:", pdfErr);
+            }
           }
 
           const fileMime = file.type || (file.name?.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');

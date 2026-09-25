@@ -99,14 +99,8 @@ app.prepare().then(() => {
   server.use('/_next/static', express.static(path.join(process.cwd(), '.next/static'), {
     maxAge: '365d',
     immutable: true,
-    fallthrough: dev
+    fallthrough: true
   }));
-
-  if (!dev) {
-    server.use('/_next/static', (req, res) => {
-      res.status(404).type('text/plain').send('Static chunk not found');
-    });
-  }
 
   // Serve static files from public folder (sw.js, manifest.json, icons, etc.)
   server.use(express.static(path.join(process.cwd(), 'public'), {

@@ -4,7 +4,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-const STATIC_CACHE_NAME = 'zaychat-static-v5';
+const STATIC_CACHE_NAME = 'zaychat-static-v6';
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(

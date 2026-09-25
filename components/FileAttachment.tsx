@@ -12,6 +12,7 @@ import { AnimatePresence } from 'motion/react';
 import { useLanguage } from '@/components/LanguageProvider';
 import { decryptFile, decryptAESKeyWithRSA, importKey, base64ToArrayBuffer } from '@/lib/crypto';
 import { keyRing } from '@/lib/keyRing';
+import { extractPdfThumbnail } from '@/lib/pdfUtils';
 import dynamic from 'next/dynamic';
 
 const DocumentViewer = dynamic(() => import('./DocumentViewer').then(mod => mod.DocumentViewer), { ssr: false });
@@ -114,6 +115,7 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
   const [retryCount, setRetryCount] = useState(0);
 
   const [pdfThumbnail, setPdfThumbnail] = useState<string | null>(fileData.thumbnail || null);
+  const effectiveThumbnail = fileData.thumbnail || pdfThumbnail;
 
   useEffect(() => {
     if (fileData.thumbnail) {
@@ -126,71 +128,21 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
   useEffect(() => {
     let active = true;
     if (!pdfThumbnail && !fileData.thumbnail && blobUrl && isPdf) {
-      const genThumb = async () => {
-        try {
-          const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
-          pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-          let data: Uint8Array | null = null;
-          if (rawBlobRef.current) {
-            const buf = await rawBlobRef.current.arrayBuffer();
-            data = new Uint8Array(buf);
-          } else if (blobUrl.startsWith('blob:') || blobUrl.startsWith('data:')) {
-            const res = await fetch(blobUrl);
-            const buf = await res.arrayBuffer();
-            data = new Uint8Array(buf);
+      extractPdfThumbnail(blobUrl).then((thumb) => {
+        if (thumb && active) {
+          setPdfThumbnail(thumb);
+          if (messageId && socket) {
+            socket.emit('message:update-thumbnail', {
+              messageId,
+              thumbnail: thumb,
+              chatId: activeGroup ? null : senderId,
+              groupId: activeGroup?.id || null
+            });
           }
-          if (!data || !active) return;
-          let pdf: any = null;
-          try {
-            pdf = await pdfjsLib.getDocument({ data }).promise;
-            if (!active) {
-              try { await pdf.destroy(); } catch {}
-              return;
-            }
-            const page = await pdf.getPage(1);
-            const vp = page.getViewport({ scale: 1.0 });
-            const MAX_DIM = 360;
-            const width = vp.width || 0;
-            const height = vp.height || 0;
-            if (width > 0 && height > 0) {
-              const thumbScale = Math.min(1.0, MAX_DIM / Math.max(width, height));
-              const thumbViewport = page.getViewport({ scale: thumbScale });
-              const canvas = document.createElement('canvas');
-              canvas.width = Math.max(1, Math.floor(thumbViewport.width));
-              canvas.height = Math.max(1, Math.floor(thumbViewport.height));
-              const ctx = canvas.getContext('2d');
-              if (ctx && active) {
-                const renderTask = page.render({
-                  canvasContext: ctx,
-                  viewport: thumbViewport
-                });
-                await renderTask.promise;
-                if (!active) {
-                  try { await pdf.destroy(); } catch {}
-                  return;
-                }
-                const thumb = canvas.toDataURL('image/webp', 0.6);
-                setPdfThumbnail(thumb);
-                if (messageId && socket) {
-                  socket.emit('message:update-thumbnail', {
-                    messageId,
-                    thumbnail: thumb,
-                    chatId: activeGroup ? null : senderId,
-                    groupId: activeGroup?.id || null
-                  });
-                }
-              }
-            }
-          } finally {
-            if (pdf) {
-              try { await pdf.destroy(); } catch {}
-            }
-          }
-        } catch (e) {
-          console.warn("Auto PDF thumbnail generation skipped:", e);
         }
-      };
-      genThumb();
+      }).catch((e) => {
+        console.warn("Auto PDF thumbnail extraction skipped:", e);
+      });
     }
     return () => { active = false; };
   }, [blobUrl, fileData.thumbnail, pdfThumbnail, isPdf, messageId, socket, activeGroup, senderId]);
@@ -855,11 +807,11 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
      * Если превью есть (для PDF оно генерируется при первом просмотре), мы натягиваем его как фоновую картинку.
      * ==========================================
      */
-    if (fileData.thumbnail) {
+    if (effectiveThumbnail) {
       return (
         <div onClick={handleThumbnailClick} className={`relative rounded-xl overflow-hidden cursor-pointer group bg-neutral-100 dark:bg-neutral-800 shadow-sm border border-neutral-200/50 dark:border-neutral-700/50 ${thumbnailClassName || 'w-12 h-12'}`}>
           <Image 
-            src={fileData.thumbnail} 
+            src={effectiveThumbnail} 
             alt={fileData.name || ""} 
             fill 
             className="object-cover group-hover:scale-105 transition-transform duration-300" 
@@ -978,7 +930,6 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
   const isImage = fileData.mime?.startsWith('image/');
   const isVideo = fileData.mime?.startsWith('video/');
   const isPdfPreview = isPdf;
-  const effectiveThumbnail = fileData.thumbnail || pdfThumbnail;
 
   if (isImage || isVideo || isPdfPreview) {
     let appliedStyle: React.CSSProperties = { 
@@ -1249,6 +1200,12 @@ export const FileAttachment = ({ fileData, senderId, socket, isThumbnail = false
     <>
       <div 
         onClick={(e) => {
+          if (fileData.isEncrypted && (!blobUrl || blobUrl.startsWith('http') || blobUrl.startsWith('/uploads'))) {
+            if (!shouldDownload) {
+              setShouldDownload(true);
+            }
+            return;
+          }
           if (isDocumentViewerSupported(fileData.mime, fileData.name)) {
             e.preventDefault();
             setIsViewerOpen(true);

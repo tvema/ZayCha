@@ -49,8 +49,16 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
           }
         } else {
           try {
-            const response = await fetch(src, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Cache-Control': 'no-cache' }});
-            if (response.ok) {
+            let response: Response | null = null;
+            try {
+              response = await fetch(src, { headers: { 'Cache-Control': 'no-cache' } });
+            } catch (e) {
+              response = null;
+            }
+            if (!response || !response.ok) {
+              response = await fetch(src).catch(() => null);
+            }
+            if (response && response.ok) {
               const arrayBuffer = await response.arrayBuffer();
               typedarray = new Uint8Array(arrayBuffer);
             }
@@ -65,10 +73,11 @@ export const DocumentViewer = ({ src, alt, onClose, onGenerateThumbnail }: { src
           const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
           pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
           
-          const documentProxy = typedarray 
-               ? pdfjsLib.getDocument({ data: typedarray }) 
-               : pdfjsLib.getDocument({ url: src });
+          const docInit: any = typedarray 
+               ? { data: typedarray, disableFontFace: true } 
+               : { url: src, disableFontFace: true };
                
+          const documentProxy = pdfjsLib.getDocument(docInit);
           const pdf = await documentProxy.promise;
           if (!active) return;
           

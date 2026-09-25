@@ -11,6 +11,7 @@ import dynamic from 'next/dynamic';
 const EmojiPicker = dynamic(() => import('emoji-picker-react').then(mod => mod.default), { ssr: false });
 import { User, Message, Group } from '@/types/chat';
 import { FileAttachment } from '@/components/FileAttachment';
+import { extractPdfThumbnail } from '@/lib/pdfUtils';
 import type { Socket } from 'socket.io-client';
 import { useTheme } from 'next-themes';
 import { useLanguage } from '../LanguageProvider';
@@ -280,6 +281,11 @@ export function MessageInput({
       setPendingFile(droppedFile);
       if (droppedFile.type.startsWith('image/') || droppedFile.type.startsWith('video/')) {
         setPreviewUrl(URL.createObjectURL(droppedFile));
+      } else if (droppedFile.type === 'application/pdf' || droppedFile.name?.toLowerCase().endsWith('.pdf')) {
+        setPreviewUrl(null);
+        extractPdfThumbnail(droppedFile).then(thumb => {
+          if (thumb) setPreviewUrl(thumb);
+        }).catch(() => {});
       } else {
         setPreviewUrl(null);
       }
@@ -389,14 +395,25 @@ export function MessageInput({
   }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      setPendingFile(file);
-      if (file.type.startsWith('image/') || file.type.startsWith('video/')) {
-        setPreviewUrl(URL.createObjectURL(file));
-      } else {
-        setPreviewUrl(null);
+    try {
+      const files = e.target.files;
+      if (files && files.length > 0) {
+        const file = files[0];
+        setPendingFile(file);
+        if (file.type.startsWith('image/') || file.type.startsWith('video/')) {
+          setPreviewUrl(URL.createObjectURL(file));
+        } else if (file.type === 'application/pdf' || file.name?.toLowerCase().endsWith('.pdf')) {
+          setPreviewUrl(null);
+          extractPdfThumbnail(file).then(thumb => {
+            if (thumb) setPreviewUrl(thumb);
+          }).catch(() => {});
+        } else {
+          setPreviewUrl(null);
+        }
       }
+    } catch (err) {
+      console.error("handleFileSelect error:", err);
+    } finally {
       setTimeout(() => {
         if (chatFileInputRef.current) {
           chatFileInputRef.current.value = '';
@@ -741,7 +758,14 @@ export function MessageInput({
         <div className="flex-1 min-w-0 bg-neutral-100 dark:bg-neutral-800 rounded-2xl border border-transparent focus-within:border-indigo-300 dark:focus-within:border-indigo-500 focus-within:bg-white dark:focus-within:bg-neutral-900 focus-within:ring-4 focus-within:ring-indigo-50 dark:focus-within:ring-indigo-900/20 transition-all flex items-end px-2 py-1">
           {!isRecording ? (
             <>
-              <input type="file" ref={chatFileInputRef} onChange={handleFileSelect} className="hidden" />
+              <input 
+                id="chat-file-input"
+                type="file" 
+                ref={chatFileInputRef} 
+                onChange={handleFileSelect} 
+                className="sr-only absolute pointer-events-none opacity-0 w-0 h-0" 
+                tabIndex={-1}
+              />
               <button 
                 type="button" 
                 onClick={() => setIsCameraOpen(true)}
@@ -750,14 +774,13 @@ export function MessageInput({
               >
                 <Camera size={20} />
               </button>
-              <button 
-                type="button" 
-                onClick={() => chatFileInputRef.current?.click()}
-                className="p-2 mb-1 text-neutral-400 dark:text-neutral-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+              <label 
+                htmlFor="chat-file-input"
+                className="p-2 mb-1 text-neutral-400 dark:text-neutral-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer flex items-center justify-center select-none"
                 title={t.modals?.attachFile}
               >
                 <Paperclip size={20} />
-              </button>
+              </label>
               <button 
                 type="button" 
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
