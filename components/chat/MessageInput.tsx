@@ -770,6 +770,7 @@ export function MessageInput({
           {!isRecording ? (
             <>
               <input 
+                id="chat-file-input"
                 type="file" 
                 ref={fileInput} 
                 onChange={handleFileSelect} 

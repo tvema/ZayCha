@@ -1277,6 +1277,8 @@ export function useChat() {
   useEffect(() => {
     const handlePopState = () => {
       if ((window as any).__ignoreChatPopstate) return;
+      // Do not close chat on popstate for desktop views (sidebar & chat are side-by-side)
+      if (typeof window !== 'undefined' && window.innerWidth > 768) return;
       const hash = window.location.hash;
       const searchParams = new URLSearchParams(window.location.search);
       if (hash.includes('chat') || hash.includes('viewer') || searchParams.has('chat') || searchParams.has('group')) {
