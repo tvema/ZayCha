@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, ReactNode } from 'react';
 import { useGlobalModal } from '@/components/GlobalModalProvider';
 import { User, Message, Group } from '@/types/chat';
-import { generateImageMetadata, generateVideoMetadata, generatePdfMetadata, compressImage } from '@/lib/chatUtils';
+import { generateImageMetadata, generateVideoMetadata, compressImage } from '@/lib/chatUtils';
 import { importKey, decryptAESKeyWithRSA, encryptText, encryptAESKeyWithRSA, encryptFile, arrayBufferToBase64, base64ToArrayBuffer } from '@/lib/crypto';
 import { keyRing } from '@/lib/keyRing';
 
@@ -202,18 +202,14 @@ export function useChatActions(token: string | null, activeContact: User | null,
             mediaMetadata = await generateImageMetadata(file);
           } else if (file.type.startsWith('video/')) {
             mediaMetadata = await generateVideoMetadata(file);
-          } else if (file.type === 'application/pdf' || file.name?.toLowerCase().endsWith('.pdf')) {
-            try {
-              mediaMetadata = await generatePdfMetadata(file);
-            } catch (pdfErr) {
-              console.warn("PDF metadata extraction warning:", pdfErr);
-            }
           }
+
+          const fileMime = file.type || (file.name?.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
 
           const metadata = {
             type: 'file',
             url: data.url,
-            mime: file.type || 'application/octet-stream',
+            mime: fileMime,
             name: file.name,
             size: file.size,
             text: content.trim() || undefined,
@@ -362,18 +358,14 @@ export function useChatActions(token: string | null, activeContact: User | null,
             mediaMetadata = await generateImageMetadata(file);
           } else if (file.type.startsWith('video/')) {
             mediaMetadata = await generateVideoMetadata(file);
-          } else if (file.type === 'application/pdf' || file.name?.toLowerCase().endsWith('.pdf')) {
-            try {
-              mediaMetadata = await generatePdfMetadata(file);
-            } catch (pdfErr) {
-              console.warn("PDF metadata extraction warning:", pdfErr);
-            }
           }
+
+          const fileMime = file.type || (file.name?.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
 
           const metadata = {
             type: 'file',
             url: data.url,
-            mime: file.type || 'application/octet-stream',
+            mime: fileMime,
             name: file.name,
             size: file.size,
             text: content.trim() || undefined,

@@ -441,7 +441,13 @@ export default function RootLayout({
 
                   // Check Service Workers & clean old caches
                   if ('caches' in window) {
-                    caches.delete('zaychat-static-v3').catch(function() {});
+                    caches.keys().then(function(keys) {
+                      keys.forEach(function(k) {
+                        if (k.indexOf('static') !== -1 || k.indexOf('zaychat') !== -1) {
+                          caches.delete(k).catch(function() {});
+                        }
+                      });
+                    }).catch(function() {});
                   }
                   if ('serviceWorker' in navigator) {
                     navigator.serviceWorker.getRegistrations().then(function(regs) {

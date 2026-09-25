@@ -4,7 +4,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-const STATIC_CACHE_NAME = 'zaychat-static-v4';
+const STATIC_CACHE_NAME = 'zaychat-static-v5';
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
@@ -12,7 +12,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== STATIC_CACHE_NAME) {
-            console.log('[SW] Deleting old static cache:', key);
+            console.log('[SW] Deleting old cache:', key);
             return caches.delete(key);
           }
         })
@@ -217,10 +217,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 2. Only intercept GET requests for static assets (scripts, styles, icons, fonts)
+  // 2. Only intercept GET requests for static assets (icons, favicon, manifest) - DO NOT intercept /_next/
   if (event.request.method === 'GET') {
     const isStaticAsset = (
-      url.pathname.startsWith('/_next/static/') ||
       url.pathname.startsWith('/icon-') ||
       url.pathname === '/favicon.ico' ||
       url.pathname === '/manifest.json'
@@ -229,39 +228,14 @@ self.addEventListener('fetch', (event) => {
     if (isStaticAsset) {
       event.respondWith(
         (async () => {
-          const isNextChunk = url.pathname.startsWith('/_next/static/');
-
-          // For Next.js scripts/chunks, prefer Network first so updates are applied immediately
-          if (isNextChunk) {
-            try {
-              const res = await fetch(event.request);
-              if (res && res.status === 200) {
-                const contentType = res.headers?.get('content-type') || '';
-                if (!contentType.includes('text/html')) {
-                  try {
-                    const cache = await caches.open(STATIC_CACHE_NAME);
-                    cache.put(event.request, res.clone());
-                  } catch (e) {}
-                  return res;
-                }
-              }
-            } catch (netErr) {
-              // Network failed, fall back to cache below
-            }
+          // A. Try Cache Storage first for static assets (icons, favicon, manifest)
+          try {
             const cached = await caches.match(event.request);
-            if (cached) return cached;
-          }
-
-          // A. Try Cache Storage first for other static assets (icons, favicon, manifest)
-          if (!isNextChunk) {
-            try {
-              const cached = await caches.match(event.request);
-              if (cached) {
-                return cached;
-              }
-            } catch (e) {
-              // Cache lookup failure, fallback to network
+            if (cached) {
+              return cached;
             }
+          } catch (e) {
+            // Cache lookup failure, fallback to network
           }
 
           // B. Network fetch with automatic retry on ERR_CONNECTION_RESET / ERR_NETWORK_CHANGED

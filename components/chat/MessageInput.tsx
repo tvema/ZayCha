@@ -5,7 +5,7 @@ import { safeLocalStorage } from '@/lib/safeStorage';
 import { useState, useRef, useEffect } from 'react';
 import ContentEditable, { ContentEditableEvent } from 'react-contenteditable';
 import { extractTextFromHTML } from '@/lib/richText';
-import { Paperclip, SmilePlus, Send, X, Edit2, Mic, Square, Trash2, Type, Camera } from 'lucide-react';
+import { Paperclip, SmilePlus, Send, X, Edit2, Mic, Square, Trash2, Type, Camera, FileText } from 'lucide-react';
 import type { Theme as EmojiTheme } from 'emoji-picker-react';
 import dynamic from 'next/dynamic';
 const EmojiPicker = dynamic(() => import('emoji-picker-react').then(mod => mod.default), { ssr: false });
@@ -397,9 +397,11 @@ export function MessageInput({
       } else {
         setPreviewUrl(null);
       }
-      if (chatFileInputRef.current) {
-        chatFileInputRef.current.value = '';
-      }
+      setTimeout(() => {
+        if (chatFileInputRef.current) {
+          chatFileInputRef.current.value = '';
+        }
+      }, 50);
     }
   };
 
@@ -661,6 +663,11 @@ export function MessageInput({
               ) : (
                 <img src={previewUrl} alt="Preview" className="w-24 h-24 object-cover rounded-lg border border-neutral-200 dark:border-neutral-700" />
               )
+            ) : (pendingFile.type === 'application/pdf' || pendingFile.name?.toLowerCase().endsWith('.pdf')) ? (
+              <div className="w-16 h-16 bg-rose-50 dark:bg-rose-950/40 text-rose-500 rounded-lg flex flex-col items-center justify-center shrink-0 border border-rose-200 dark:border-rose-800 shadow-sm">
+                <FileText size={26} className="text-rose-500" />
+                <span className="text-[10px] font-black tracking-wider text-rose-600 dark:text-rose-400 mt-0.5">PDF</span>
+              </div>
             ) : (
               <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg flex items-center justify-center shrink-0">
                 <Paperclip size={28} />
