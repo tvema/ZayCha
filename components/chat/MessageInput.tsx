@@ -104,27 +104,23 @@ export function MessageInput({
   const [isSubmittingFeed, setIsSubmittingFeed] = useState(false);
 
   const targetId = activeGroup?.id || activeContact?.id || 'default';
-  const draftsRef = useRef<Record<string, { input: string, htmlContent: string, pendingFile: File | null, previewUrl: string | null }>>({});
+  const draftsRef = useRef<Record<string, { input: string, htmlContent: string }>>({});
   const prevTargetIdRef = useRef<string>(targetId);
-  const currentStateRef = useRef({ input, htmlContent, pendingFile, previewUrl });
-  currentStateRef.current = { input, htmlContent, pendingFile, previewUrl };
+  const currentTextRef = useRef({ input, htmlContent });
+  currentTextRef.current = { input, htmlContent };
 
   useEffect(() => {
     if (prevTargetIdRef.current !== targetId) {
       const prevId = prevTargetIdRef.current;
-      draftsRef.current[prevId] = currentStateRef.current;
+      draftsRef.current[prevId] = currentTextRef.current;
       
       const draft = draftsRef.current[targetId];
       if (draft) {
         setInput(draft.input);
         setHtmlContent(draft.htmlContent);
-        setPendingFile(draft.pendingFile);
-        setPreviewUrl(draft.previewUrl);
       } else {
         setInput('');
         setHtmlContent('');
-        setPendingFile(null);
-        setPreviewUrl(null);
       }
       
       prevTargetIdRef.current = targetId;
@@ -394,36 +390,49 @@ export function MessageInput({
     };
   }, []);
 
-  const fallbackFileInputRef = useRef<HTMLInputElement>(null);
-  const fileInput = chatFileInputRef || fallbackFileInputRef;
+  const localFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const setFileInputRef = (el: HTMLInputElement | null) => {
+    localFileInputRef.current = el;
+    if (chatFileInputRef) {
+      if (typeof chatFileInputRef === 'function') {
+        chatFileInputRef(el);
+      } else {
+        (chatFileInputRef as any).current = el;
+      }
+    }
+  };
 
   const handleOpenFileDialog = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (fileInput.current) {
-      fileInput.current.value = '';
-      fileInput.current.click();
+    if (localFileInputRef.current) {
+      localFileInputRef.current.click();
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       const files = e.target.files;
-      if (files && files.length > 0) {
-        const file = files[0];
-        setPendingFile(file);
-        if (file.type.startsWith('image/') || file.type.startsWith('video/')) {
-          setPreviewUrl(URL.createObjectURL(file));
-        } else if (file.type === 'application/pdf' || file.name?.toLowerCase().endsWith('.pdf')) {
-          setPreviewUrl(null);
-          extractPdfThumbnail(file).then(thumb => {
-            if (thumb) setPreviewUrl(thumb);
-          }).catch((thumbErr) => {
-            console.warn("Could not extract pdf thumbnail in MessageInput:", thumbErr);
-          });
-        } else {
-          setPreviewUrl(null);
-        }
+      if (!files || files.length === 0) return;
+      
+      const file = files[0];
+      setPendingFile(file);
+
+      const mime = file.type || '';
+      const name = (file.name || '').toLowerCase();
+
+      if (mime.startsWith('image/') || mime.startsWith('video/')) {
+        setPreviewUrl(URL.createObjectURL(file));
+      } else if (mime === 'application/pdf' || name.endsWith('.pdf')) {
+        setPreviewUrl(null);
+        extractPdfThumbnail(file).then(thumb => {
+          if (thumb) setPreviewUrl(thumb);
+        }).catch((thumbErr) => {
+          console.warn("Could not extract pdf thumbnail in MessageInput:", thumbErr);
+        });
+      } else {
+        setPreviewUrl(null);
       }
     } catch (err) {
       console.error("handleFileSelect error:", err);
@@ -437,8 +446,11 @@ export function MessageInput({
       URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
     }
-    if (fileInput.current) {
-      fileInput.current.value = '';
+    if (localFileInputRef.current) {
+      localFileInputRef.current.value = '';
+    }
+    if (chatFileInputRef && typeof chatFileInputRef !== 'function' && chatFileInputRef.current) {
+      chatFileInputRef.current.value = '';
     }
   };
 
@@ -530,7 +542,7 @@ export function MessageInput({
       }
     }
 
-    const isForcedUnencrypted = pendingFile && pendingFile.type.startsWith('video/') && pendingFile.size > 20 * 1024 * 1024;
+    const isForcedUnencrypted = pendingFile && (pendingFile.type || '').startsWith('video/') && pendingFile.size > 20 * 1024 * 1024;
     const finalSendUnencrypted = isForcedUnencrypted ? true : (pendingFile ? !encryptFiles : false);
 
     handleSendMessage(currentInput, pendingFile || undefined, sendAsOriginal, finalSendUnencrypted);
@@ -682,41 +694,50 @@ export function MessageInput({
           </button>
         </div>
       )}
-      {pendingFile && (
-        <div className="max-w-4xl mx-auto mb-2 bg-neutral-100 dark:bg-neutral-800 rounded-xl p-3 flex items-start justify-between relative z-50 border border-neutral-200 dark:border-neutral-700">
-          <div className="flex items-center gap-4 min-w-0 pr-4">
-            {previewUrl ? (
-              pendingFile.type.startsWith('video/') ? (
-                <video src={previewUrl} className="w-24 h-24 object-cover rounded-lg border border-neutral-200 dark:border-neutral-700" controls={false} />
+      {pendingFile && (() => {
+        const fileType = pendingFile.type || '';
+        const fileName = (pendingFile.name || '').toLowerCase();
+        const isVideo = fileType.startsWith('video/');
+        const isImage = fileType.startsWith('image/');
+        const isPdf = fileType === 'application/pdf' || fileName.endsWith('.pdf');
+        const isLargeVideo = isVideo && pendingFile.size > 20 * 1024 * 1024;
+        const fileSizeMB = (pendingFile.size / 1024 / 1024).toFixed(2);
+
+        return (
+          <div className="max-w-4xl mx-auto mb-2 bg-neutral-100 dark:bg-neutral-800 rounded-xl p-3 flex items-start justify-between relative z-50 border border-neutral-200 dark:border-neutral-700">
+            <div className="flex items-center gap-4 min-w-0 pr-4">
+              {previewUrl ? (
+                isVideo ? (
+                  <video src={previewUrl} className="w-24 h-24 object-cover rounded-lg border border-neutral-200 dark:border-neutral-700" controls={false} />
+                ) : (
+                  <img src={previewUrl} alt="Preview" className="w-24 h-24 object-cover rounded-lg border border-neutral-200 dark:border-neutral-700" />
+                )
+              ) : isPdf ? (
+                <div className="w-16 h-16 bg-rose-50 dark:bg-rose-950/40 text-rose-500 rounded-lg flex flex-col items-center justify-center shrink-0 border border-rose-200 dark:border-rose-800 shadow-sm">
+                  <FileText size={26} className="text-rose-500" />
+                  <span className="text-[10px] font-black tracking-wider text-rose-600 dark:text-rose-400 mt-0.5">PDF</span>
+                </div>
               ) : (
-                <img src={previewUrl} alt="Preview" className="w-24 h-24 object-cover rounded-lg border border-neutral-200 dark:border-neutral-700" />
-              )
-            ) : (pendingFile.type === 'application/pdf' || pendingFile.name?.toLowerCase().endsWith('.pdf')) ? (
-              <div className="w-16 h-16 bg-rose-50 dark:bg-rose-950/40 text-rose-500 rounded-lg flex flex-col items-center justify-center shrink-0 border border-rose-200 dark:border-rose-800 shadow-sm">
-                <FileText size={26} className="text-rose-500" />
-                <span className="text-[10px] font-black tracking-wider text-rose-600 dark:text-rose-400 mt-0.5">PDF</span>
-              </div>
-            ) : (
-              <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg flex items-center justify-center shrink-0">
-                <Paperclip size={28} />
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100 truncate">{pendingFile.name}</p>
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">{(pendingFile.size / 1024 / 1024).toFixed(2)} MB</p>
-              {pendingFile.type.startsWith('image/') && (
-                <label className="flex items-center gap-2 mt-2 cursor-pointer text-xs text-neutral-600 dark:text-neutral-300">
-                  <input 
-                    type="checkbox" 
-                    checked={sendAsOriginal} 
-                    onChange={(e) => setSendAsOriginal(e.target.checked)}
-                    className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500 bg-white"
-                  />
-                  <span>Отправить без сжатия (оригинал)</span>
-                </label>
+                <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg flex items-center justify-center shrink-0">
+                  <Paperclip size={28} />
+                </div>
               )}
-              <div className="mt-2 text-xs">
-                  <label className={`flex items-center gap-2 cursor-pointer font-medium ${pendingFile.type.startsWith('video/') && pendingFile.size > 20 * 1024 * 1024 ? 'hidden' : 'text-indigo-600 dark:text-indigo-400'}`}>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100 truncate">{pendingFile.name}</p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">{fileSizeMB} MB</p>
+                {isImage && (
+                  <label className="flex items-center gap-2 mt-2 cursor-pointer text-xs text-neutral-600 dark:text-neutral-300">
+                    <input 
+                      type="checkbox" 
+                      checked={sendAsOriginal} 
+                      onChange={(e) => setSendAsOriginal(e.target.checked)}
+                      className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500 bg-white"
+                    />
+                    <span>Отправить без сжатия (оригинал)</span>
+                  </label>
+                )}
+                <div className="mt-2 text-xs">
+                  <label className={`flex items-center gap-2 cursor-pointer font-medium ${isLargeVideo ? 'hidden' : 'text-indigo-600 dark:text-indigo-400'}`}>
                     <input 
                       type="checkbox" 
                       checked={encryptFiles} 
@@ -725,28 +746,29 @@ export function MessageInput({
                     />
                     <span>Зашифровать (E2E)</span>
                   </label>
-                  {pendingFile.type.startsWith('video/') && pendingFile.size > 20 * 1024 * 1024 && (
+                  {isLargeVideo && (
                     <span className="text-red-500 block mt-1">
                       Шифрование отключено: видео больше 20МБ
                     </span>
                   )}
-                  {pendingFile.type.startsWith('video/') && pendingFile.size <= 20 * 1024 * 1024 && !encryptFiles && (
+                  {isVideo && !isLargeVideo && !encryptFiles && (
                     <p className="mt-1 text-orange-500/80 dark:text-orange-400/80">
                       Без шифрования видео проигрывается мгновенно по кусочкам. Идеально для длинных видео ("с котиками").
                     </p>
                   )}
                 </div>
+              </div>
             </div>
+            <button 
+              type="button"
+              onClick={clearPendingFile}
+              className="p-1 text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors"
+            >
+              <X size={16} />
+            </button>
           </div>
-          <button 
-            type="button"
-            onClick={clearPendingFile}
-            className="p-1 text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors"
-          >
-            <X size={16} />
-          </button>
-        </div>
-      )}
+        );
+      })()}
       
       {uploadProgress && (
         <div className="max-w-4xl mx-auto mb-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl p-3 relative z-50 border border-indigo-100 dark:border-indigo-800 flex items-center gap-3">
@@ -772,7 +794,7 @@ export function MessageInput({
               <input 
                 id="chat-file-input"
                 type="file" 
-                ref={fileInput} 
+                ref={setFileInputRef} 
                 onChange={handleFileSelect} 
                 className="hidden" 
                 tabIndex={-1}
